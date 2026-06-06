@@ -38,6 +38,9 @@ jobs:
       - name: Generate app/installer icon from the brandmark logo
         run: node tools/make-icon.js
 
+      - name: Brand the installer banner text ("Installing E Mic")
+        run: node tools/patch-installer-text.js
+
       - name: Build & publish web installer to GitHub Releases
         run: npm run publish
         env:
