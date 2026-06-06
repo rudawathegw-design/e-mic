@@ -1,0 +1,41 @@
+name: Build & Publish E Mic
+
+# Runs when you push a version tag like v2.4.1 (or run it manually).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the GitHub Release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Recreate license secret from repo secret
+        shell: pwsh
+        run: |
+          "export const SECRET = $env:LICENSE_SECRET;" | Out-File -Encoding utf8 src/main/secret.js
+        env:
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & publish web installer to GitHub Releases
+        run: npm run publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

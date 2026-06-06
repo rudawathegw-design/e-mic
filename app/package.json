@@ -28,6 +28,7 @@
   "build": {
     "appId": "iq.fib.eamic",
     "productName": "E Mic",
+    "npmRebuild": false,
     "files": [
       "src/**/*",
       "node_modules/**/*"
