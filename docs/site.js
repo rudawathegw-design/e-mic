@@ -96,13 +96,14 @@
     }
     return null;
   }
+  var DOWNLOAD_URL = "https://github.com/rudawathegw-design/e-mic/releases/latest/download/EMic-Web-Setup.exe";
   [].slice.call(document.querySelectorAll("a.btn")).forEach(function (a) {
     if (!/Download for Windows/i.test(a.textContent)) return;
-    a.setAttribute("href", "#");
+    a.setAttribute("href", DOWNLOAD_URL);
     var tn = lastTextNode(a);
     var orig = tn ? tn.textContent : "";
-    a.addEventListener("click", function (e) {
-      e.preventDefault();
+    a.addEventListener("click", function () {
+      // let the browser actually download the installer, just show feedback
       if (a.dataset.busy || !tn) return;
       a.dataset.busy = "1";
       tn.textContent = " Starting download\u2026";
