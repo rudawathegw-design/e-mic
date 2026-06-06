@@ -1,6 +1,6 @@
 {
   "name": "ea-mic",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "description": "E Mic — English voice to text (offline dictation)",
   "author": "First Iraqi Bank",
   "license": "UNLICENSED",
@@ -14,16 +14,16 @@
     "publish": "electron-builder --win --publish always"
   },
   "dependencies": {
+    "@babel/standalone": "^7.26.4",
     "@huggingface/transformers": "^3.3.3",
     "electron-updater": "^6.8.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "uiohook-napi": "^1.5.4"
   },
   "devDependencies": {
-    "@babel/standalone": "^7.26.4",
     "electron": "^33.2.1",
-    "electron-builder": "^25.1.8",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "electron-builder": "^25.1.8"
   },
   "build": {
     "appId": "iq.fib.eamic",

@@ -279,6 +279,8 @@ function applyStartup(enabled) {
 }
 
 app.whenReady().then(() => {
+  // Windows taskbar identity — makes the taskbar use our icon and group correctly.
+  try { app.setAppUserModelID("iq.fib.eamic"); } catch {}
   createWindow();
   createOverlay();
   setupIpc();
