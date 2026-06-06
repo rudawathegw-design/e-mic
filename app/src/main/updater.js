@@ -122,4 +122,8 @@ export async function checkForUpdates() {
 }
 export function downloadUpdate() { return autoUpdater.downloadUpdate(); }
 export function quitAndInstall() { autoUpdater.quitAndInstall(); }
-export function checkSilently() { if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {}); }
+export function checkSilently() {
+  // macOS auto-update requires a signed+notarized build; skip until we have one.
+  if (process.platform === "darwin") return;
+  if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {});
+}

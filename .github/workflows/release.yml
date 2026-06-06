@@ -11,7 +11,7 @@ permissions:
   contents: write   # needed to create the GitHub Release
 
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
     defaults:
       run:
@@ -41,7 +41,40 @@ jobs:
       - name: Brand the installer banner text ("Installing E Mic")
         run: node tools/patch-installer-text.js
 
-      - name: Build & publish web installer to GitHub Releases
-        run: npm run publish
+      - name: Build & publish Windows web installer
+        run: npx --no-install electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mac:
+    needs: windows          # run after Windows so the release already exists (no race)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Recreate license secret from repo secret
+        run: |
+          echo "export const SECRET = ${LICENSE_SECRET};" > src/main/secret.js
+        env:
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate app icon from the brandmark logo
+        run: node tools/make-icon.js
+
+      - name: Build & publish macOS .dmg (unsigned)
+        run: npx --no-install electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"   # do not attempt code signing

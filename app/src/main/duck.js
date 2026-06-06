@@ -1,38 +1,59 @@
-// duck.js — lower the Windows master volume while dictating, then restore it.
-// Uses a tiny PowerShell CoreAudio helper (volume.ps1). No native modules.
+// duck.js — lower the system volume while dictating, then restore it.
+// Windows: a tiny PowerShell CoreAudio helper (volume.ps1), volume as 0..1.
+// macOS: AppleScript `set volume` / `get volume settings`, volume as 0..100.
+// No native modules.
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PS1 = path.join(__dirname, "volume.ps1");
+const isMac = process.platform === "darwin";
 
-// how much each setting lowers the volume (fraction)
-const FACTOR = { "Off": 0, "Low (10%)": 0.10, "Medium (25%)": 0.25, "High (50%)": 0.50 };
+let saved = null;   // volume (fraction 0..1) to restore after dictation
 
-let saved = null;   // volume to restore after dictation
-
-function run(args) {
+function spawnText(cmd, args) {
   return new Promise((resolve) => {
     let out = "";
-    const c = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", PS1, ...args], { windowsHide: true });
+    const c = spawn(cmd, args, { windowsHide: true });
     c.stdout.on("data", (d) => (out += d));
     c.on("close", () => resolve(out.trim()));
     c.on("error", () => resolve(""));
   });
 }
 
+// Returns the current output volume as a fraction 0..1 (NaN on failure).
+async function getVol() {
+  if (isMac) {
+    const out = await spawnText("osascript", ["-e", "output volume of (get volume settings)"]);
+    const n = parseFloat(out);
+    return Number.isNaN(n) ? NaN : n / 100;
+  }
+  const out = await spawnText("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", PS1, "get"]);
+  return parseFloat(out);
+}
+
+// Sets the output volume from a fraction 0..1.
+async function setVol(frac) {
+  if (isMac) {
+    const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+    await spawnText("osascript", ["-e", `set volume output volume ${pct}`]);
+    return;
+  }
+  await spawnText("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", PS1, "set", String(frac)]);
+}
+
 export async function duck(setting) {
   if (!setting || setting === "Off") return;   // any level other than Off = mute while talking
-  const cur = parseFloat(await run(["get"]));
+  const cur = await getVol();
   if (Number.isNaN(cur)) return;
   saved = cur;
-  await run(["set", "0"]);   // fully stop other audio while dictating
+  await setVol(0);   // fully stop other audio while dictating
 }
 
 export async function unduck() {
   if (saved == null) return;
   const v = saved;
   saved = null;
-  await run(["set", String(v)]);
+  await setVol(v);
 }
