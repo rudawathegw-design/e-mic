@@ -41,19 +41,46 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" 
   ${bars}
 </svg>`;
 
-const pngBuf = await sharp(Buffer.from(svg)).png().toBuffer();
+const pngBuf = await sharp(Buffer.from(svg)).resize(512, 512).png().toBuffer();
 writeFileSync(join(buildDir, "icon.png"), pngBuf);
 
-// Build a multi-size .ico that embeds PNG images (Vista+ format).
+// Build a multi-size .ico using UNCOMPRESSED BMP (DIB) entries — the most
+// widely-compatible format for Windows Explorer, the taskbar, and NSIS.
 const sizes = [16, 24, 32, 48, 64, 128, 256];
-const images = await Promise.all(
-  sizes.map((sz) => sharp(Buffer.from(svg)).resize(sz, sz).png().toBuffer())
-);
 
-const header = Buffer.alloc(6);
-header.writeUInt16LE(0, 0);
-header.writeUInt16LE(1, 2);          // type: icon
-header.writeUInt16LE(sizes.length, 4);
+async function bmpEntry(sz) {
+  // RGBA, top-down, sz*sz*4
+  const raw = await sharp(Buffer.from(svg)).resize(sz, sz).ensureAlpha().raw().toBuffer();
+  const header = Buffer.alloc(40);
+  header.writeUInt32LE(40, 0);          // biSize
+  header.writeInt32LE(sz, 4);           // biWidth
+  header.writeInt32LE(sz * 2, 8);       // biHeight (XOR image + AND mask)
+  header.writeUInt16LE(1, 12);          // biPlanes
+  header.writeUInt16LE(32, 14);         // biBitCount
+  header.writeUInt32LE(0, 16);          // biCompression = BI_RGB
+  const xor = Buffer.alloc(sz * sz * 4);
+  for (let y = 0; y < sz; y++) {
+    const srcRow = y * sz * 4;
+    const dstRow = (sz - 1 - y) * sz * 4; // BMP is bottom-up
+    for (let x = 0; x < sz; x++) {
+      const s = srcRow + x * 4, d = dstRow + x * 4;
+      xor[d] = raw[s + 2];       // B
+      xor[d + 1] = raw[s + 1];   // G
+      xor[d + 2] = raw[s];       // R
+      xor[d + 3] = raw[s + 3];   // A
+    }
+  }
+  const maskRow = (((sz + 31) >> 5) << 2); // 1bpp rows padded to 4 bytes
+  const and = Buffer.alloc(maskRow * sz);  // all zero = fully opaque
+  return Buffer.concat([header, xor, and]);
+}
+
+const images = await Promise.all(sizes.map(bmpEntry));
+
+const dirHeader = Buffer.alloc(6);
+dirHeader.writeUInt16LE(0, 0);
+dirHeader.writeUInt16LE(1, 2);          // type: icon
+dirHeader.writeUInt16LE(sizes.length, 4);
 
 const dir = Buffer.alloc(16 * sizes.length);
 let offset = 6 + 16 * sizes.length;
@@ -71,5 +98,5 @@ images.forEach((img, i) => {
   offset += img.length;
 });
 
-writeFileSync(join(buildDir, "icon.ico"), Buffer.concat([header, dir, ...images]));
-console.log("Wrote build/icon.png and build/icon.ico (" + sizes.join(",") + ")");
+writeFileSync(join(buildDir, "icon.ico"), Buffer.concat([dirHeader, dir, ...images]));
+console.log("Wrote build/icon.png and build/icon.ico (BMP entries: " + sizes.join(",") + ")");

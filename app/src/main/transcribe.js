@@ -25,8 +25,29 @@ async function getTranscriber(modelName) {
   return transcriberPromise;
 }
 
+let warmedUp = false;
+
 export function resetModel() {
   transcriberPromise = null;
+  warmedUp = false;
+}
+
+/**
+ * Silently load the model AND run one tiny dummy inference so the very first
+ * real Ctrl+Win press is instant (no "loading" pause). Safe to call repeatedly;
+ * runs only once. Never throws — warm-up failures are ignored.
+ */
+export async function warmUp(modelName) {
+  if (warmedUp) return;
+  try {
+    const asr = await getTranscriber(modelName);
+    // 0.5s of silence at 16 kHz — forces the onnx graph to compile end-to-end.
+    const silence = new Float32Array(8000);
+    await asr(silence, { chunk_length_s: 30, stride_length_s: 5 });
+    warmedUp = true;
+  } catch {
+    /* ignore — the real call will load it on demand */
+  }
 }
 
 /**

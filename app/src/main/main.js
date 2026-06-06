@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 
 import * as store from "./store.js";
 import { isValidKey } from "./license.js";
-import { transcribe, resetModel } from "./transcribe.js";
+import { transcribe, resetModel, warmUp } from "./transcribe.js";
 import { process as processText } from "./punctuate.js";
 import { deliver } from "./paste.js";
 import { duck, unduck } from "./duck.js";
@@ -208,7 +208,10 @@ function setupIpc() {
   ipcMain.handle("settings:set", (_e, settings) => {
     const prev = store.get().settings;
     store.patch({ settings });
-    if (settings.model !== prev.model) resetModel();
+    if (settings.model !== prev.model) {
+      resetModel();
+      setTimeout(() => { warmUp(settings.model); }, 300); // re-warm the new model
+    }
     applyStartup(settings.startup);
     return true;
   });
@@ -288,6 +291,8 @@ app.whenReady().then(() => {
   applyStartup(store.get().settings.startup);   // honor saved "launch on startup"
   initUpdater(win);
   checkSilently();   // auto-check for updates on launch
+  // Pre-load the speech model in the background so the first Ctrl+Win is instant.
+  setTimeout(() => { warmUp(store.get().settings.model); }, 1500);
   app.on("activate", () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 
