@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700&family=Noto+Naskh+Arabic:wght@500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --surface:#FFFFFF; --text:#2B2620; --text-muted:#6E6457; --text-faint:#9C9285;
+  --accent:#D97757; --accent-strong:#C2603E; --accent-soft:#FAEDE6; --accent-border:#EBC3B2;
+  --success:#5B8A72; --success-soft:#E9F0EA; --success-border:#BFD6C7;
+  --border:#E7DFD2;
+  --sans:'Hanken Grotesk',system-ui,sans-serif;
+}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none;}
+.wrap{height:100%;display:flex;align-items:flex-end;justify-content:center;padding-bottom:0;}
+.pill{
+  display:flex;align-items:center;gap:14px;
+  background:var(--surface);border:1.5px solid var(--accent);border-radius:999px;
+  padding:12px 20px 12px 16px;
+  min-width:320px;max-width:520px;font-family:var(--sans);
+  opacity:0;transform:translateY(16px) scale(.97);
+  transition:opacity .18s ease, transform .22s cubic-bezier(.2,.9,.3,1.2);
+}
+.pill.show{opacity:1;transform:none;}
+.pulse{width:11px;height:11px;border-radius:50%;background:var(--accent);flex:0 0 11px;animation:pulse 1.4s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,119,87,.45);}70%{box-shadow:0 0 0 9px rgba(217,119,87,0);}100%{box-shadow:0 0 0 0 rgba(217,119,87,0);}}
+.wave{display:flex;align-items:center;gap:3px;height:26px;flex:1;justify-content:center;}
+.wave i{width:3.5px;border-radius:3px;background:var(--accent);height:6px;display:block;animation:wv 1s ease-in-out infinite;}
+@keyframes wv{0%,100%{height:6px;}50%{height:24px;}}
+.plang{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:600;color:var(--accent-strong);background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:6px;padding:3px 7px;flex:0 0 auto;}
+.esc{font-family:ui-monospace,monospace;font-size:10px;color:var(--text-faint);border:1px solid var(--border);border-radius:5px;padding:2px 6px;flex:0 0 auto;}
+.pstatus{font-size:13.5px;color:var(--text-muted);font-weight:500;flex:1;display:flex;align-items:center;gap:9px;}
+.spin{width:15px;height:15px;border-radius:50%;border:2px solid var(--accent-soft);border-top-color:var(--accent);animation:sp .7s linear infinite;flex:0 0 auto;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.ptext{flex:1;font-size:14.5px;line-height:1.4;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ptext.rtl{direction:rtl;text-align:right;font-family:'Noto Naskh Arabic',var(--sans);font-size:16px;}
+.pcheck{width:22px;height:22px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 22px;font-size:13px;}
+.pdone{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:600;color:var(--success);background:var(--success-soft);border:1px solid var(--success-border);border-radius:6px;padding:3px 7px;flex:0 0 auto;}
+.dots span{animation:blink 1.2s infinite both;}
+.dots span:nth-child(2){animation-delay:.2s;}.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="pill" id="pill"></div></div>
+
+<script>
+// The overlay is VISUAL ONLY. Recording + transcription happen in the dashboard
+// window (a normal focusable window); the main process drives this pill via events.
+(function(){
+  const pill = document.getElementById("pill");
+  let lang = "en";
+  let hideTimer = null;
+
+  const show = () => pill.classList.add("show");
+  const hide = () => { pill.classList.remove("show"); setTimeout(() => window.EA && window.EA.hideOverlay(), 220); };
+
+  function renderListening(){
+    const bars = Array.from({length:15}).map((_,i)=>`<i style="animation-delay:${(i*0.07).toFixed(2)}s;animation-duration:${(0.7+(i%4)*0.12).toFixed(2)}s"></i>`).join("");
+    pill.innerHTML = `<span class="pulse"></span><span class="wave">${bars}</span><span class="plang">${lang==="ar"?"ع AR":"EN"}</span><span class="esc">esc</span>`;
+  }
+  function renderTranscribing(){
+    pill.innerHTML = `<span class="spin"></span><span class="pstatus">Transcribing<span class="dots"><span>.</span><span>.</span><span>.</span></span></span><span class="plang">${lang==="ar"?"ع AR":"EN"}</span>`;
+  }
+  function renderDone(text, l){
+    const rtl = l==="ar" ? " rtl" : "";
+    pill.innerHTML = `<span class="pcheck">✓</span><span class="ptext${rtl}">${escapeHtml(text)}</span><span class="pdone">Pasted</span>`;
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  function renderUpgrade(){
+    pill.innerHTML = `<span class="pcheck" style="background:var(--accent)">★</span><span class="pstatus" style="color:var(--text);font-weight:600">Trial ended — Upgrade to Pro</span>`;
+  }
+
+  // listening: pill appears the moment the hotkey is held
+  // trial over: show an "Upgrade to Pro" pill briefly
+  window.EA.onUpgrade(() => { clearTimeout(hideTimer); renderUpgrade(); show(); hideTimer = setTimeout(hide, 2800); });
+  window.EA.onPttStart(() => { clearTimeout(hideTimer); lang = "en"; renderListening(); show(); });
+  // released: dashboard is now transcribing
+  window.EA.onPttStop(() => { renderTranscribing(); });
+  // result from the main process
+  window.EA.onResult((res) => {
+    if (res && res.ok) {
+      lang = res.lang === "ar" ? "ar" : "en";
+      renderDone(res.text, lang); show();
+      hideTimer = setTimeout(hide, 2200);
+    } else {
+      hide();
+    }
+  });
+})();
+</script>
+</body>
+</html>

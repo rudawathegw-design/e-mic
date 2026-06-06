@@ -1,0 +1,53 @@
+{
+  "name": "ea-mic",
+  "version": "2.4.1",
+  "description": "E Mic — English voice to text (offline dictation)",
+  "author": "First Iraqi Bank",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "keys": "node tools/generate-keys.js",
+    "dist": "electron-builder --win",
+    "publish": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.3.3",
+    "electron-updater": "^6.8.9",
+    "uiohook-napi": "^1.5.4"
+  },
+  "devDependencies": {
+    "@babel/standalone": "^7.26.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "build": {
+    "appId": "iq.fib.eamic",
+    "productName": "E Mic",
+    "files": [
+      "src/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis-web",
+      "artifactName": "EMic-Web-Setup.${ext}"
+    },
+    "nsisWeb": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "rudawathegw-design",
+        "repo": "e-mic"
+      }
+    ]
+  }
+}

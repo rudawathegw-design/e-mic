@@ -1,0 +1,20 @@
+# dependencies
+app/node_modules/
+node_modules/
+
+# build output
+app/dist/
+dist/
+
+# license secret — NEVER commit this
+app/src/main/secret.js
+
+# local working files
+site_tmp/
+extracted/
+*.zip
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.log
