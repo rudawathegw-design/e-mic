@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# whisper.cpp is added as a submodule / vendored tree — do not commit a copy.
+/app/src/main/cpp/whisper/
+
+# Bundled speech model (large). Provide it at build time; don't commit.
+/app/src/main/assets/models/*.bin
