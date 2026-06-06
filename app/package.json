@@ -1,6 +1,6 @@
 {
   "name": "ea-mic",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "E Mic — English voice to text (offline dictation)",
   "author": "First Iraqi Bank",
   "license": "UNLICENSED",
@@ -33,15 +33,20 @@
       "src/**/*",
       "node_modules/**/*"
     ],
+    "icon": "build/icon.ico",
     "win": {
       "target": "nsis-web",
-      "artifactName": "EMic-Web-Setup.${ext}"
+      "artifactName": "EMic-Web-Setup.${ext}",
+      "icon": "build/icon.ico"
     },
     "nsisWeb": {
       "oneClick": true,
       "perMachine": false,
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     },
     "publish": [
       {

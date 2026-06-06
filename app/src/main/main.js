@@ -17,6 +17,7 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RENDERER = path.join(__dirname, "..", "renderer", "index.html");
 const OVERLAY = path.join(__dirname, "..", "renderer", "overlay.html");
+const APP_ICON = path.join(__dirname, "..", "renderer", "assets", "icon.png");
 
 let win = null;        // dashboard
 let overlay = null;    // system-wide listening pill
@@ -29,7 +30,7 @@ function osUser() {
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 840, minWidth: 900, minHeight: 600,
-    frame: false, backgroundColor: "#FAF9F5", show: false,
+    frame: false, backgroundColor: "#FAF9F5", show: false, icon: APP_ICON,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true, nodeIntegration: false, sandbox: false,
