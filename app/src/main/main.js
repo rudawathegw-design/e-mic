@@ -1,5 +1,5 @@
 // main.js — Electron main process for E Mic.
-import { app, BrowserWindow, ipcMain, clipboard, screen } from "electron";
+import { app, BrowserWindow, ipcMain, clipboard, screen, Tray, Menu, nativeImage } from "electron";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,8 @@ const APP_ICON = path.join(__dirname, "..", "renderer", "assets", "icon.png");
 
 let win = null;        // dashboard
 let overlay = null;    // system-wide listening pill
+let tray = null;       // notification-area (system tray) icon
+let isQuitting = false; // true only when the user really wants to exit
 
 // real Windows account/login name, e.g. "RudawAbdulrahman"
 function osUser() {
@@ -43,12 +45,31 @@ function createWindow() {
   );
   win.loadFile(RENDERER);
   win.once("ready-to-show", () => win.show());
-  win.on("closed", () => {
-    win = null;
-    try { overlay?.destroy(); } catch {}
-    overlay = null;
-    app.quit();
+  // Clicking the X (or "Close window" from the taskbar) hides to the tray and
+  // keeps E Mic running in the background — it does NOT quit the app.
+  win.on("close", (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      win.hide();
+    }
   });
+  win.on("closed", () => { win = null; });
+}
+
+function createTray() {
+  if (tray) return;
+  let img = nativeImage.createFromPath(APP_ICON);
+  if (!img.isEmpty()) img = img.resize({ width: 16, height: 16 });
+  tray = new Tray(img.isEmpty() ? nativeImage.createEmpty() : img);
+  tray.setToolTip("E Mic — voice to text");
+  const showApp = () => { if (win) { win.show(); win.focus(); } else createWindow(); };
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Open E Mic", click: showApp },
+    { type: "separator" },
+    { label: "Quit E Mic", click: () => { isQuitting = true; app.quit(); } },
+  ]));
+  tray.on("click", showApp);
+  tray.on("double-click", showApp);
 }
 
 function createOverlay() {
@@ -285,6 +306,7 @@ app.whenReady().then(() => {
   // Windows taskbar identity — makes the taskbar use our icon and group correctly.
   try { app.setAppUserModelID("iq.fib.eamic"); } catch {}
   createWindow();
+  createTray();
   createOverlay();
   setupIpc();
   setupHotkey();
@@ -296,6 +318,12 @@ app.whenReady().then(() => {
   app.on("activate", () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+// Keep running in the tray even if all windows are hidden/closed.
+app.on("window-all-closed", () => { /* stay alive in the tray */ });
+
+// Real quit (tray "Quit", updater quitAndInstall, OS shutdown): clean up.
+app.on("before-quit", () => { isQuitting = true; });
+app.on("will-quit", () => {
+  try { overlay?.destroy(); } catch {}
+  try { tray?.destroy(); } catch {}
 });
