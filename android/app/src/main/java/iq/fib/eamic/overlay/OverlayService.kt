@@ -224,10 +224,38 @@ class OverlayService : LifecycleService() {
     }
 
     private fun onInsert() {
-        val ok = InsertAccessibilityService.insertText(resultText)
         repo.addTranscript(resultText)
-        toast(if (ok) "Inserted" else "Enable E Mic accessibility to insert")
+        if (!InsertAccessibilityService.isEnabled) {
+            // Can't type into other apps until the Accessibility service is on.
+            // Copy so nothing's lost, then take the user to turn it on.
+            copyToClipboard(resultText)
+            toast("Turn on “E Mic” in Accessibility to insert. Copied for now.")
+            openAccessibilitySettings()
+            closeSheet()
+            return
+        }
+        val ok = InsertAccessibilityService.insertText(resultText)
+        if (ok) {
+            toast("Inserted")
+        } else {
+            copyToClipboard(resultText)
+            toast("No text field focused — copied instead")
+        }
         closeSheet()
+    }
+
+    private fun copyToClipboard(text: String) {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("E Mic", text))
+    }
+
+    private fun openAccessibilitySettings() {
+        runCatching {
+            startActivity(
+                Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
     }
 
     private fun closeSheet() {
