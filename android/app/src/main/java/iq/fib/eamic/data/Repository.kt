@@ -80,16 +80,22 @@ class Repository private constructor(private val appContext: Context) {
         val clock = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault()).format(java.util.Date(now))
         val t = Transcript(id = now, time = clock, group = "Today", text = text)
         _history.value = listOf(t) + _history.value
-        _stats.value = _stats.value.copy(
-            words = _stats.value.words + text.trim().split(Regex("\\s+")).count { it.isNotBlank() },
-            dictations = _stats.value.dictations + 1,
-        )
+        recomputeStats()
         persist()
     }
 
     fun deleteTranscript(id: Long) {
         _history.value = _history.value.filterNot { it.id == id }
+        recomputeStats()
         persist()
+    }
+
+    /** Stats are always derived from history, so they can never drift out of it. */
+    private fun recomputeStats() {
+        val words = _history.value.sumOf { t ->
+            t.text.trim().split(Regex("\\s+")).count { it.isNotBlank() }
+        }
+        _stats.value = Stats(words = words, dictations = _history.value.size)
     }
 
     // ---- persistence -----------------------------------------------------
@@ -103,8 +109,6 @@ class Repository private constructor(private val appContext: Context) {
             p[K.bubble] = s.bubble
             p[K.startup] = s.startup
             p[K.license] = _license.value.name
-            p[K.words] = _stats.value.words
-            p[K.dictations] = _stats.value.dictations
             p[K.history] = historyToJson(_history.value)
             p[K.dictionary] = JSONArray(_dictionary.value).toString()
         }
@@ -120,8 +124,8 @@ class Repository private constructor(private val appContext: Context) {
             startup = p[K.startup] ?: true,
         )
         _license.value = p[K.license]?.let { runCatching { LicenseState.valueOf(it) }.getOrNull() } ?: LicenseState.TRIAL
-        _stats.value = Stats(words = p[K.words] ?: 0, dictations = p[K.dictations] ?: 0)
         p[K.history]?.let { json -> historyFromJson(json)?.let { _history.value = it } }
+        recomputeStats()
         p[K.dictionary]?.let { json ->
             runCatching {
                 val arr = JSONArray(json)

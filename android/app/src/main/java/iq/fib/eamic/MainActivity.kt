@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -110,6 +111,16 @@ private fun RootApp(repo: Repository) {
     LaunchedEffect(Unit) {
         // Only checks when internet is available; silent if offline or up to date.
         update = iq.fib.eamic.update.Updater.check(context)
+    }
+
+    // Back gesture: close an open sub-screen, then fall back to the Home tab,
+    // before letting the system leave the app. Stops a stray swipe from exiting.
+    BackHandler(enabled = showLicense || showDictionary || tab != Tab.HOME) {
+        when {
+            showLicense -> showLicense = false
+            showDictionary -> showDictionary = false
+            else -> tab = Tab.HOME
+        }
     }
 
     val settings by repo.settings.collectAsState()
