@@ -12,8 +12,8 @@ android {
         applicationId = "iq.fib.eamic"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.0.7"
+        versionCode = 8
+        versionName = "1.0.8"
 
         vectorDrawables { useSupportLibrary = true }
 

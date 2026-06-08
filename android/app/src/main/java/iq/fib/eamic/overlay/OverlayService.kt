@@ -286,7 +286,7 @@ class OverlayService : LifecycleService() {
         return NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle("E Mic")
             .setContentText("Tap the bubble anywhere to talk")
-            .setSmallIcon(R.drawable.ic_brandmark)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(tap)
             .setOngoing(true)
             .build()

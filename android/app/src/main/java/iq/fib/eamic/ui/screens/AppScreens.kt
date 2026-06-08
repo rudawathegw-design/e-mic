@@ -252,6 +252,12 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            Text(
+                "E Mic v${iq.fib.eamic.BuildConfig.VERSION_NAME} (${iq.fib.eamic.BuildConfig.VERSION_CODE})",
+                fontFamily = Sans, fontSize = 11.sp, color = EMic.textFaint,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
     }
 }
