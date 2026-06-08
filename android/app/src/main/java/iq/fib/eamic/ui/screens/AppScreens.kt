@@ -219,6 +219,7 @@ fun SettingsScreen(
     onToggle: (String) -> Unit,
     onAccount: () -> Unit,
     onDictionary: () -> Unit,
+    onCheckUpdate: () -> Unit = {},
 ) {
     val acctText = when (license) {
         LicenseState.PRO -> "Pro · Lifetime"
@@ -250,6 +251,10 @@ fun SettingsScreen(
                     SettingToggle(Icons.Outlined.GraphicEq, "Floating bubble", "Show the mic over other apps", settings.bubble) { onToggle("bubble") }
                     SettingToggle(Icons.Outlined.Refresh, "Start on boot", "Launch E Mic when phone starts", settings.startup, last = true) { onToggle("startup") }
                 }
+            }
+            SectionLabel("About", Modifier.padding(top = 16.dp, bottom = 7.dp))
+            Card(Modifier.fillMaxWidth()) {
+                SettingRow(Icons.Outlined.Refresh, "Check for updates", "Get the latest version", null, onClick = onCheckUpdate)
             }
             Spacer(Modifier.height(16.dp))
             Text(

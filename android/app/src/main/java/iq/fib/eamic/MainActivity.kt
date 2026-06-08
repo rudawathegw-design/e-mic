@@ -239,6 +239,21 @@ private fun RootApp(repo: Repository) {
                         },
                         onAccount = { showLicense = true },
                         onDictionary = { showDictionary = true },
+                        onCheckUpdate = {
+                            scope.launch {
+                                if (!iq.fib.eamic.update.Updater.hasInternet(context)) {
+                                    Toast.makeText(context, "No internet connection", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                                val found = iq.fib.eamic.update.Updater.check(context)
+                                if (found != null) {
+                                    dismissedUpdate = false
+                                    update = found
+                                } else {
+                                    Toast.makeText(context, "You're on the latest version", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
                     )
                 }
             }
