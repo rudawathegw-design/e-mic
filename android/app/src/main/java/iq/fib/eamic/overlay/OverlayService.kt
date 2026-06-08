@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -14,6 +15,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import iq.fib.eamic.MainActivity
 import iq.fib.eamic.R
@@ -34,7 +36,14 @@ class OverlayService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        startForeground(NOTIF_ID, buildNotification())
+        try {
+            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+            ServiceCompat.startForeground(this, NOTIF_ID, buildNotification(), type)
+        } catch (e: Exception) {
+            // If the foreground promotion is refused for any reason, still try to
+            // show the bubble rather than crashing the whole app.
+        }
         addBubble()
     }
 

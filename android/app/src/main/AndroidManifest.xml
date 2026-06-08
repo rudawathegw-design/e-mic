@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -38,11 +38,17 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.EMic.Translucent" />
 
-        <!-- Floating mic bubble + dictation sheet, runs over other apps -->
+        <!-- Floating mic bubble, runs over other apps. The bubble itself does
+             not record (recording happens in DictationActivity), so this is a
+             special-use FGS, not a microphone one. -->
         <service
             android:name=".overlay.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floating_mic_overlay" />
+        </service>
 
         <!-- Inserts dictated text into the focused field of any app -->
         <service

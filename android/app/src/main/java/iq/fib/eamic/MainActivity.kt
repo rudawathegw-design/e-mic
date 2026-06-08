@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +44,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import iq.fib.eamic.data.Repository
 import iq.fib.eamic.license.LicenseState
 import iq.fib.eamic.overlay.OverlayService
@@ -86,23 +90,36 @@ private fun RootApp(repo: Repository) {
         Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
-    // Reflect the "Floating bubble" setting into the actual overlay service,
-    // requesting the draw-over-other-apps permission the first time it's enabled.
+    // When the bubble is switched OFF, stop the service. When switched ON
+    // without the draw-over-apps permission, send the user to grant it.
     LaunchedEffect(settings.bubble) {
-        if (settings.bubble) {
-            if (android.provider.Settings.canDrawOverlays(context)) {
-                OverlayService.start(context)
-            } else {
-                context.startActivity(
-                    Intent(
-                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        android.net.Uri.parse("package:${context.packageName}"),
-                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
-        } else {
+        if (!settings.bubble) {
             OverlayService.stop(context)
+        } else if (!android.provider.Settings.canDrawOverlays(context)) {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:${context.packageName}"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
         }
+    }
+
+    // Start (or re-check) the overlay every time the app resumes — crucially
+    // this fires when the user returns from granting the overlay permission, so
+    // the bubble actually appears on first enable.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, settings.bubble) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME &&
+                settings.bubble &&
+                android.provider.Settings.canDrawOverlays(context)
+            ) {
+                OverlayService.start(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Column(Modifier.fillMaxSize().background(EMic.bg)) {
