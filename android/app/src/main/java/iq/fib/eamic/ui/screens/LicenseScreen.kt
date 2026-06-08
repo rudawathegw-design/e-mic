@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -139,20 +140,30 @@ private fun BuyBlock(onActivate: (String) -> Unit) {
     Step(3, "Enter the code below", "Paste it here and tap Activate — unlocked for life.")
 
     Spacer(Modifier.height(10.dp))
-    // Code input
-    Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(EMic.surface)
-            .border(1.5.dp, if (err) EMic.danger else EMic.borderStrong, RoundedCornerShape(11.dp)).padding(horizontal = 13.dp, vertical = 12.dp)
-    ) {
-        if (code.isEmpty()) Text("6-digit code (e.g. 123456)", fontFamily = Sans, fontSize = 14.sp, color = EMic.textFaint)
-        BasicTextField(
-            value = code,
-            onValueChange = { code = it.filter(Char::isDigit).take(6); err = false },
-            singleLine = true,
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-            textStyle = TextStyle(fontFamily = Mono, fontSize = 16.sp, letterSpacing = 4.sp, color = EMic.text),
-        )
-    }
+    // Code input. The text field fills the whole box and a focus requester lets
+    // a tap anywhere (or on the box border) focus it and pop the keyboard — fixes
+    // the old "only the left edge is tappable when empty" problem.
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    BasicTextField(
+        value = code,
+        onValueChange = { code = it.filter(Char::isDigit).take(6); err = false },
+        singleLine = true,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        textStyle = TextStyle(fontFamily = Mono, fontSize = 16.sp, letterSpacing = 4.sp, color = EMic.text),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(EMic.primary),
+        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        decorationBox = { inner ->
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(EMic.surface)
+                    .border(1.5.dp, if (err) EMic.danger else EMic.borderStrong, RoundedCornerShape(11.dp))
+                    .clickable { focus.requestFocus() }
+                    .padding(horizontal = 13.dp, vertical = 14.dp),
+            ) {
+                if (code.isEmpty()) Text("6-digit code (e.g. 123456)", fontFamily = Sans, fontSize = 14.sp, color = EMic.textFaint)
+                inner()
+            }
+        },
+    )
 
     Spacer(Modifier.height(10.dp))
     // Activate button
