@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -30,21 +31,13 @@
             </intent-filter>
         </activity>
 
-        <!-- Translucent dictation sheet launched by tapping the bubble -->
-        <activity
-            android:name=".overlay.DictationActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTop"
-            android:theme="@style/Theme.EMic.Translucent" />
-
-        <!-- Floating mic bubble, runs over other apps. The bubble itself does
-             not record (recording happens in DictationActivity), so this is a
-             special-use FGS, not a microphone one. -->
+        <!-- Floating mic bubble + dictation panel, drawn over other apps. The
+             panel records audio in-place, so the service declares both the
+             special-use and microphone foreground types. -->
         <service
             android:name=".overlay.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|microphone">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floating_mic_overlay" />

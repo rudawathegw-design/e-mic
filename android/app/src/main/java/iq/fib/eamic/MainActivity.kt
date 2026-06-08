@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -58,10 +59,26 @@ import iq.fib.eamic.ui.theme.EMicTheme
 import iq.fib.eamic.ui.theme.Sans
 
 class MainActivity : ComponentActivity() {
+
+    private val permissions = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* result handled lazily — the overlay re-checks on resume */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val repo = Repository.get(this)
+
+        // Ask for mic (needed so the overlay's microphone foreground service can
+        // record) and notifications up front, before the bubble is enabled.
+        val wanted = buildList {
+            add(android.Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= 33) add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }.filter {
+            checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (wanted.isNotEmpty()) permissions.launch(wanted.toTypedArray())
+
         setContent { EMicTheme { RootApp(repo) } }
     }
 }

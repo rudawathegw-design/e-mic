@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The 60dp frosted floating bubble with the equaliser glyph centered. -->
+<!-- The 60dp frosted floating bubble with the animated equaliser wave (the
+     website mark), matching the prototype's .bubble .bwave. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="60dp"
     android:layout_height="60dp"
     android:background="@drawable/bubble_bg"
     android:elevation="8dp">
 
-    <ImageView
+    <iq.fib.eamic.overlay.WaveformView
+        android:id="@+id/bubble_wave"
         android:layout_width="26dp"
-        android:layout_height="26dp"
+        android:layout_height="22dp"
         android:layout_gravity="center"
-        android:src="@drawable/ic_brandmark"
         android:contentDescription="@string/app_name" />
 </FrameLayout>
