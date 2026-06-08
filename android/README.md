@@ -24,6 +24,9 @@ uses, so it stays fully offline and private.
 | whisper.cpp JNI bridge + audio capture (16 kHz mono) | ✅ wiring, ⛏ needs sources + model |
 | Auto-punctuation / cleanup (ports desktop `punctuate.js`) | ✅ |
 | GitHub Actions APK build (`.github/workflows/android.yml`) | ✅ |
+| Signed release build (PKCS12 keystore from repo secrets) | ✅ |
+| Quantised model (`base.en` q5_1, ~57 MB) | ✅ |
+| Official Google Fonts prod certificate | ✅ |
 
 ## Prerequisites
 
@@ -77,6 +80,26 @@ runners — handy since neither this machine nor a phone can build locally.
 
 Set the `LICENSE_SECRET` repo secret (Settings → Secrets → Actions) to the same
 digit as the desktop, or activation codes won't validate.
+
+### Release signing
+
+The release build is signed with a PKCS12 keystore supplied via repo secrets:
+
+- `ANDROID_KEYSTORE_BASE64` — base64 of the `.p12` keystore
+- `ANDROID_KEYSTORE_PASSWORD` — store/key password
+- `ANDROID_KEY_ALIAS` — key alias (`emic`)
+
+These are already configured for this repo. CI decodes the keystore, builds
+`assembleRelease`, and the signed `EMic-android.apk` is attached to the Release.
+If the keystore secret is absent the build still succeeds but produces an
+unsigned APK. **Keep the keystore + password safe** — the same key is required
+to publish app updates. Local signing config lives in `app/build.gradle.kts`
+(reads `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS`
+from the environment).
+
+> The keystore was generated with OpenSSL (PKCS12); Android accepts it via
+> `storeType = "PKCS12"`. For Play Store upload you can keep this key or enrol
+> in Play App Signing.
 
 ## Activation codes / SECRET
 

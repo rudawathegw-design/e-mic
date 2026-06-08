@@ -41,11 +41,11 @@ jobs:
           git clone --depth 1 https://github.com/ggerganov/whisper.cpp \
             app/src/main/cpp/whisper
 
-      - name: Download Whisper model (base.en)
+      - name: Download Whisper model (base.en, q5_1 quantised ~57 MB)
         run: |
           mkdir -p app/src/main/assets/models
           curl -L --fail -o app/src/main/assets/models/ggml-base.en.bin \
-            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin
 
       - name: Inject license SECRET from repo secret
         env:
@@ -56,29 +56,45 @@ jobs:
             app/src/main/java/iq/fib/eamic/license/License.kt
           echo "Set SECRET in License.kt to ${SECRET}"
 
+      - name: Decode signing keystore (if configured)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/emic-release.p12"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/emic-release.p12" >> "$GITHUB_ENV"
+            echo "Keystore decoded — release build will be signed."
+          else
+            echo "No keystore secret set — release build will be unsigned."
+          fi
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+      - name: Build release APK (signed if keystore present)
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: gradle assembleRelease --no-daemon
 
-      - name: Rename APK
+      - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/EMic-android-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk out/EMic-android.apk \
+            || cp app/build/outputs/apk/release/app-release-unsigned.apk out/EMic-android.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EMic-android-debug
-          path: android/out/EMic-android-debug.apk
+          name: EMic-android
+          path: android/out/EMic-android.apk
 
       - name: Attach APK to Release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: android/out/EMic-android-debug.apk
+          files: android/out/EMic-android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

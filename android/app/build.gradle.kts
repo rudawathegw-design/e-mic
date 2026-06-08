@@ -31,10 +31,28 @@ android {
         }
     }
 
+    // Release signing — keys come from the environment (decoded from repo
+    // secrets in CI). When the keystore isn't present (e.g. a local UI-only
+    // build), the release build stays unsigned and you can still use debug.
+    val keystorePath: String? = System.getenv("ANDROID_KEYSTORE_PATH")
+    val hasSigning = keystorePath != null && file(keystorePath).exists()
+    signingConfigs {
+        if (hasSigning) {
+            create("release") {
+                storeFile = file(keystorePath!!)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                storeType = "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
 

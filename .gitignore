@@ -20,3 +20,7 @@ Thumbs.db
 *.log
 
 dist-android/
+ksbuild/
+*.p12
+*.keystore
+*.jks
