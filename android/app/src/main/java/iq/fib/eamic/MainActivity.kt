@@ -33,7 +33,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -95,9 +97,20 @@ private enum class Tab(val label: String, val outline: ImageVector, val filled: 
 @Composable
 private fun RootApp(repo: Repository) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf(Tab.HOME) }
     var showLicense by remember { mutableStateOf(false) }
     var showDictionary by remember { mutableStateOf(false) }
+
+    // ---- self-updater (free, via GitHub Releases) ----
+    var update by remember { mutableStateOf<iq.fib.eamic.update.Updater.Release?>(null) }
+    var dismissedUpdate by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var downloadPct by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        // Only checks when internet is available; silent if offline or up to date.
+        update = iq.fib.eamic.update.Updater.check(context)
+    }
 
     val settings by repo.settings.collectAsState()
     val license by repo.license.collectAsState()
@@ -219,6 +232,30 @@ private fun RootApp(repo: Repository) {
                 }
             }
             if (!showLicense && !showDictionary) BottomNav(tab) { tab = it }
+        }
+
+        // Update gate sits above everything. Mandatory updates can't be dismissed.
+        update?.let { rel ->
+            if (rel.isMandatory || !dismissedUpdate) {
+                iq.fib.eamic.ui.screens.UpdatePrompt(
+                    release = rel,
+                    downloading = downloading,
+                    progress = downloadPct,
+                    onUpdate = {
+                        downloading = true
+                        scope.launch {
+                            val ok = iq.fib.eamic.update.Updater.downloadAndInstall(context, rel) { p ->
+                                downloadPct = p
+                            }
+                            if (!ok) {
+                                downloading = false
+                                Toast.makeText(context, "Update download failed — try again", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onLater = { dismissedUpdate = true },
+                )
+            }
         }
     }
 }

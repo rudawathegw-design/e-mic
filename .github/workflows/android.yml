@@ -91,10 +91,28 @@ jobs:
           name: EMic-android
           path: android/out/EMic-android.apk
 
+      # The in-app self-updater (Updater.kt) reads `versionCode=N` from the
+      # release body to decide whether an installed build is out of date.
+      # `min=N` (optional) forces everyone below that code to update.
+      - name: Read versionCode from build.gradle.kts
+        id: ver
+        run: |
+          CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts | head -1)
+          NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$CODE versionName=$NAME"
+
       - name: Attach APK to Release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: android/out/EMic-android.apk
+          name: E Mic ${{ steps.ver.outputs.name }}
+          body: |
+            E Mic ${{ steps.ver.outputs.name }}
+
+            versionCode=${{ steps.ver.outputs.code }}
+            # To force everyone below a build to update, add e.g.  min=${{ steps.ver.outputs.code }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

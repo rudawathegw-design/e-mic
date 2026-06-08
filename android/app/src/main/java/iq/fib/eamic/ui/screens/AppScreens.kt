@@ -105,7 +105,7 @@ fun HomeScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 StatCard(Modifier.weight(1f), stats.words.toString(), "words", EMic.primary)
                 StatCard(Modifier.weight(1f), stats.dictations.toString(), "dictations", EMic.success)
-                StatCard(Modifier.weight(1f), "${stats.minutesSaved} m", "saved", EMic.primary)
+                StatCard(Modifier.weight(1f), "${stats.minutesSavedPrecise} m", "saved", EMic.primary)
             }
             Spacer(Modifier.height(16.dp))
             SectionLabel("Scratchpad")

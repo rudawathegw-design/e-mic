@@ -81,7 +81,7 @@ class Repository private constructor(private val appContext: Context) {
         val t = Transcript(id = now, time = clock, group = "Today", text = text)
         _history.value = listOf(t) + _history.value
         _stats.value = _stats.value.copy(
-            words = _stats.value.words + text.trim().split(Regex("\\s+")).size,
+            words = _stats.value.words + text.trim().split(Regex("\\s+")).count { it.isNotBlank() },
             dictations = _stats.value.dictations + 1,
         )
         persist()

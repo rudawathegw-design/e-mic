@@ -12,8 +12,8 @@ android {
         applicationId = "iq.fib.eamic"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         vectorDrawables { useSupportLibrary = true }
 
@@ -66,6 +66,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"

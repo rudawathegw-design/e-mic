@@ -54,6 +54,7 @@ class OverlayService : LifecycleService() {
     private lateinit var bubbleLp: WindowManager.LayoutParams
     private var sheet: View? = null
     private var resultText: String = ""
+    private var resultValid: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -205,12 +206,13 @@ class OverlayService : LifecycleService() {
         thread {
             val samples = recorder.stop()
             val raw = if (WhisperBridge.ensureLoaded(this)) WhisperBridge.transcribe(samples) else null
-            val text = raw?.let { Punctuate.process(it, punctuation = punctuate, grammar = punctuate, dictionary = dictionary) }
-                ?.ifBlank { "" }
-                ?: "(Could not transcribe — make sure the model is bundled.)"
+            val cleaned = raw?.let { Punctuate.process(it, punctuation = punctuate, grammar = punctuate, dictionary = dictionary) }
+            val valid = !cleaned.isNullOrBlank()
+            val text = if (valid) cleaned!! else "(Didn't catch that — tap Redo to try again.)"
             main.post {
                 if (sheet == null) return@post
                 resultText = text
+                resultValid = valid
                 sheet?.findViewById<TextView>(R.id.result_text)?.text = text
                 showGroup(listening = false, transcribing = false, result = true)
             }

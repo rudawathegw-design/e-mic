@@ -27,4 +27,7 @@ data class Stats(
      * so each dictated word saves time ≈ word/30 − word/150 minutes.
      */
     val minutesSaved: Int get() = Math.round(words * (1f / 30f - 1f / 150f))
+
+    /** Same figure to one decimal, so small amounts don't round down to 0. */
+    val minutesSavedPrecise: Float get() = Math.round(words * (1f / 30f - 1f / 150f) * 10f) / 10f
 }

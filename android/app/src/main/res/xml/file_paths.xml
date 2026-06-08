@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Downloaded APKs live in the app's external cache; shared with the
+         system package installer via FileProvider. -->
+    <external-cache-path name="apk_cache" path="updates/" />
+</paths>
