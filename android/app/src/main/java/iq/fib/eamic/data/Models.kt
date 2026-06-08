@@ -17,11 +17,14 @@ data class Settings(
     val startup: Boolean = true,
 )
 
-/** Aggregate home-screen stats. */
+/** Aggregate home-screen stats — accumulated from real dictations, from zero. */
 data class Stats(
-    val words: Int = 1284,
-    val dictations: Int = 36,
+    val words: Int = 0,
+    val dictations: Int = 0,
 ) {
-    /** Minutes saved — prototype uses words/40. */
-    val minutesSaved: Int get() = Math.round(words / 40f)
+    /**
+     * Minutes saved vs typing. Speaking ≈150 wpm, typing on a phone ≈30 wpm,
+     * so each dictated word saves time ≈ word/30 − word/150 minutes.
+     */
+    val minutesSaved: Int get() = Math.round(words * (1f / 30f - 1f / 150f))
 }

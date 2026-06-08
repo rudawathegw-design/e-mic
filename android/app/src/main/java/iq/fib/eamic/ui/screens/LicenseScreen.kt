@@ -144,8 +144,14 @@ private fun BuyBlock(onActivate: (String) -> Unit) {
         Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(EMic.surface)
             .border(1.5.dp, if (err) EMic.danger else EMic.borderStrong, RoundedCornerShape(11.dp)).padding(horizontal = 13.dp, vertical = 12.dp)
     ) {
-        if (code.isEmpty()) Text("Activation code (e.g. EA-7K9P-2M4Q)", fontFamily = Sans, fontSize = 14.sp, color = EMic.textFaint)
-        BasicTextField(code, { code = it; err = false }, textStyle = TextStyle(fontFamily = Mono, fontSize = 14.sp, letterSpacing = 1.4.sp, color = EMic.text))
+        if (code.isEmpty()) Text("6-digit code (e.g. 123456)", fontFamily = Sans, fontSize = 14.sp, color = EMic.textFaint)
+        BasicTextField(
+            value = code,
+            onValueChange = { code = it.filter(Char::isDigit).take(6); err = false },
+            singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+            textStyle = TextStyle(fontFamily = Mono, fontSize = 16.sp, letterSpacing = 4.sp, color = EMic.text),
+        )
     }
 
     Spacer(Modifier.height(10.dp))

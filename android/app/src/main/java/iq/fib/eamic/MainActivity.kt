@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.History
@@ -50,6 +52,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import iq.fib.eamic.data.Repository
 import iq.fib.eamic.license.LicenseState
 import iq.fib.eamic.overlay.OverlayService
+import iq.fib.eamic.ui.screens.DictionaryScreen
 import iq.fib.eamic.ui.screens.HistoryScreen
 import iq.fib.eamic.ui.screens.HomeScreen
 import iq.fib.eamic.ui.screens.LicenseScreen
@@ -94,17 +97,40 @@ private fun RootApp(repo: Repository) {
     val context = LocalContext.current
     var tab by remember { mutableStateOf(Tab.HOME) }
     var showLicense by remember { mutableStateOf(false) }
+    var showDictionary by remember { mutableStateOf(false) }
 
     val settings by repo.settings.collectAsState()
     val license by repo.license.collectAsState()
     val trialDays by repo.trialDays.collectAsState()
     val stats by repo.stats.collectAsState()
     val history by repo.history.collectAsState()
+    val dictionary by repo.dictionary.collectAsState()
+
+    // Real device-owner name if available; otherwise no name (never a default).
+    val userName = remember {
+        runCatching {
+            (context.getSystemService(Context.USER_SERVICE) as android.os.UserManager).userName
+        }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("Owner", true) }
+    }
 
     fun copy(text: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("E Mic", text))
         Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+    }
+
+    // Tapping the scratchpad starts the floating dictation in place.
+    fun dictate() {
+        if (android.provider.Settings.canDrawOverlays(context)) {
+            OverlayService.dictate(context)
+        } else {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:${context.packageName}"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
     }
 
     // When the bubble is switched OFF, stop the service. When switched ON
@@ -139,51 +165,61 @@ private fun RootApp(repo: Repository) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Column(Modifier.fillMaxSize().background(EMic.bg)) {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                showLicense -> LicenseScreen(
-                    license = license,
-                    onBack = { showLicense = false },
-                    onActivate = {
-                        repo.setLicense(LicenseState.PRO)
-                        showLicense = false
-                        Toast.makeText(context, "Pro activated — thank you!", Toast.LENGTH_SHORT).show()
-                    },
-                )
-                tab == Tab.HOME -> HomeScreen(
-                    license, trialDays, stats, history,
-                    scratchpad = "",
-                    onUpgrade = { showLicense = true },
-                    onSeeAll = { tab = Tab.HISTORY },
-                )
-                tab == Tab.HISTORY -> HistoryScreen(history, ::copy, repo::deleteTranscript)
-                tab == Tab.SETTINGS -> SettingsScreen(
-                    license, trialDays, settings,
-                    onCycle = { key ->
-                        repo.updateSettings { s ->
-                            when (key) {
-                                "model" -> s.copy(model = cycle(listOf("Fast", "Balanced", "Accurate"), s.model))
-                                "output" -> s.copy(output = cycle(listOf("Insert", "Copy only", "Insert + copy"), s.output))
-                                else -> s
+    Box(Modifier.fillMaxSize().background(EMic.bg)) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    showDictionary -> DictionaryScreen(
+                        words = dictionary,
+                        onBack = { showDictionary = false },
+                        onAdd = repo::addDictionaryWord,
+                        onRemove = repo::removeDictionaryWord,
+                    )
+                    showLicense -> LicenseScreen(
+                        license = license,
+                        onBack = { showLicense = false },
+                        onActivate = {
+                            repo.setLicense(LicenseState.PRO)
+                            showLicense = false
+                            Toast.makeText(context, "Pro activated — thank you!", Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                    tab == Tab.HOME -> HomeScreen(
+                        license, trialDays, stats, history,
+                        userName = userName,
+                        scratchpad = history.firstOrNull()?.text ?: "",
+                        onUpgrade = { showLicense = true },
+                        onSeeAll = { tab = Tab.HISTORY },
+                        onDictate = { dictate() },
+                    )
+                    tab == Tab.HISTORY -> HistoryScreen(history, ::copy, repo::deleteTranscript)
+                    tab == Tab.SETTINGS -> SettingsScreen(
+                        license, trialDays, settings,
+                        onCycle = { key ->
+                            repo.updateSettings { s ->
+                                when (key) {
+                                    "output" -> s.copy(output = cycle(listOf("Insert", "Copy only", "Insert + copy"), s.output))
+                                    else -> s
+                                }
                             }
-                        }
-                    },
-                    onToggle = { key ->
-                        repo.updateSettings { s ->
-                            when (key) {
-                                "punctuation" -> s.copy(punctuation = !s.punctuation)
-                                "bubble" -> s.copy(bubble = !s.bubble)
-                                "startup" -> s.copy(startup = !s.startup)
-                                else -> s
+                        },
+                        onToggle = { key ->
+                            repo.updateSettings { s ->
+                                when (key) {
+                                    "punctuation" -> s.copy(punctuation = !s.punctuation)
+                                    "bubble" -> s.copy(bubble = !s.bubble)
+                                    "startup" -> s.copy(startup = !s.startup)
+                                    else -> s
+                                }
                             }
-                        }
-                    },
-                    onAccount = { showLicense = true },
-                )
+                        },
+                        onAccount = { showLicense = true },
+                        onDictionary = { showDictionary = true },
+                    )
+                }
             }
+            if (!showLicense && !showDictionary) BottomNav(tab) { tab = it }
         }
-        if (!showLicense) BottomNav(tab) { tab = it }
     }
 }
 

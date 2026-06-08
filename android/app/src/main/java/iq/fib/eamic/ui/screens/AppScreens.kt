@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Language
@@ -75,17 +76,24 @@ fun HomeScreen(
     trialDays: Int,
     stats: Stats,
     recent: List<Transcript>,
+    userName: String?,
     scratchpad: String,
     onUpgrade: () -> Unit,
     onSeeAll: () -> Unit,
+    onDictate: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = Pad), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 18.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Row {
-                        Text("Good evening, ", fontFamily = Serif, fontWeight = FontWeight.Medium, fontSize = 25.sp, color = EMic.text)
-                        Text("Rudaw", fontFamily = Serif, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 25.sp, color = EMic.primaryStrong)
+                        Text(
+                            if (userName.isNullOrBlank()) "Good evening" else "Good evening, ",
+                            fontFamily = Serif, fontWeight = FontWeight.Medium, fontSize = 25.sp, color = EMic.text,
+                        )
+                        if (!userName.isNullOrBlank()) {
+                            Text(userName, fontFamily = Serif, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 25.sp, color = EMic.primaryStrong)
+                        }
                     }
                     Text("Tap the bubble anywhere to talk", fontFamily = Sans, fontSize = 12.5.sp, color = EMic.textFaint)
                 }
@@ -102,7 +110,7 @@ fun HomeScreen(
             Spacer(Modifier.height(16.dp))
             SectionLabel("Scratchpad")
             Spacer(Modifier.height(9.dp))
-            Card(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth().clickable(onClick = onDictate)) {
                 Column {
                     Row(
                         Modifier.fillMaxWidth().background(EMic.surface2).padding(horizontal = 14.dp, vertical = 11.dp),
@@ -210,6 +218,7 @@ fun SettingsScreen(
     onCycle: (String) -> Unit,
     onToggle: (String) -> Unit,
     onAccount: () -> Unit,
+    onDictionary: () -> Unit,
 ) {
     val acctText = when (license) {
         LicenseState.PRO -> "Pro · Lifetime"
@@ -229,9 +238,9 @@ fun SettingsScreen(
             SectionLabel("Dictation", Modifier.padding(top = 16.dp, bottom = 7.dp))
             Card(Modifier.fillMaxWidth()) {
                 Column {
-                    SettingRow(Icons.Outlined.Memory, "Model", "Accuracy vs. speed", settings.model) { onCycle("model") }
                     SettingRow(Icons.Outlined.Language, "Language", "More languages soon", "English", divider = true)
                     SettingRow(Icons.Outlined.TextFields, "Output", "What happens after you speak", settings.output) { onCycle("output") }
+                    SettingRow(Icons.Outlined.Book, "Dictionary", "Fix names & special words", null, divider = true, onClick = onDictionary)
                     SettingToggle(Icons.Outlined.AutoAwesome, "Auto-punctuation", "Add commas & periods", settings.punctuation, last = true) { onToggle("punctuation") }
                 }
             }

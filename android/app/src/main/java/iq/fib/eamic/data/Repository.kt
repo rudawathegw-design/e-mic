@@ -41,11 +41,26 @@ class Repository private constructor(private val appContext: Context) {
     private val _stats = MutableStateFlow(Stats())
     val stats = _stats.asStateFlow()
 
-    private val _history = MutableStateFlow(seedHistory())
+    private val _history = MutableStateFlow<List<Transcript>>(emptyList())
     val history = _history.asStateFlow()
+
+    private val _dictionary = MutableStateFlow<List<String>>(emptyList())
+    val dictionary = _dictionary.asStateFlow()
 
     init {
         scope.launch { load() }
+    }
+
+    fun addDictionaryWord(word: String) {
+        val w = word.trim()
+        if (w.isEmpty() || _dictionary.value.any { it.equals(w, ignoreCase = true) }) return
+        _dictionary.value = _dictionary.value + w
+        persist()
+    }
+
+    fun removeDictionaryWord(word: String) {
+        _dictionary.value = _dictionary.value.filterNot { it == word }
+        persist()
     }
 
     // ---- mutations -------------------------------------------------------
@@ -61,7 +76,9 @@ class Repository private constructor(private val appContext: Context) {
     }
 
     fun addTranscript(text: String) {
-        val t = Transcript(id = System.currentTimeMillis(), time = "now", group = "Today", text = text)
+        val now = System.currentTimeMillis()
+        val clock = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault()).format(java.util.Date(now))
+        val t = Transcript(id = now, time = clock, group = "Today", text = text)
         _history.value = listOf(t) + _history.value
         _stats.value = _stats.value.copy(
             words = _stats.value.words + text.trim().split(Regex("\\s+")).size,
@@ -89,6 +106,7 @@ class Repository private constructor(private val appContext: Context) {
             p[K.words] = _stats.value.words
             p[K.dictations] = _stats.value.dictations
             p[K.history] = historyToJson(_history.value)
+            p[K.dictionary] = JSONArray(_dictionary.value).toString()
         }
     }
 
@@ -102,8 +120,14 @@ class Repository private constructor(private val appContext: Context) {
             startup = p[K.startup] ?: true,
         )
         _license.value = p[K.license]?.let { runCatching { LicenseState.valueOf(it) }.getOrNull() } ?: LicenseState.TRIAL
-        _stats.value = Stats(words = p[K.words] ?: 1284, dictations = p[K.dictations] ?: 36)
+        _stats.value = Stats(words = p[K.words] ?: 0, dictations = p[K.dictations] ?: 0)
         p[K.history]?.let { json -> historyFromJson(json)?.let { _history.value = it } }
+        p[K.dictionary]?.let { json ->
+            runCatching {
+                val arr = JSONArray(json)
+                _dictionary.value = (0 until arr.length()).map { arr.getString(it) }
+            }
+        }
     }
 
     private object K {
@@ -116,6 +140,7 @@ class Repository private constructor(private val appContext: Context) {
         val words = intPreferencesKey("words")
         val dictations = intPreferencesKey("dictations")
         val history = stringPreferencesKey("history")
+        val dictionary = stringPreferencesKey("dictionary")
     }
 
     companion object {
@@ -142,13 +167,5 @@ class Repository private constructor(private val appContext: Context) {
                 Transcript(o.getLong("id"), o.getString("time"), o.getString("group"), o.getString("text"))
             }
         }.getOrNull()
-
-        private fun seedHistory() = listOf(
-            Transcript(1, "2:34 PM", "Today", "Let's lock the design review for Thursday and loop in the data team."),
-            Transcript(2, "1:12 PM", "Today", "Can you send me the latest numbers before the standup tomorrow?"),
-            Transcript(3, "11:48 AM", "Today", "The new onboarding flow cut drop-off by almost forty percent — great work."),
-            Transcript(4, "5:20 PM", "Yesterday", "Reminder: send the updated contract to legal and CC Maya."),
-            Transcript(5, "9:03 AM", "Yesterday", "Let's confirm the order on Tuesday, and I'll send over the invoice."),
-        )
     }
 }

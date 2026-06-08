@@ -41,11 +41,11 @@ jobs:
           git clone --depth 1 https://github.com/ggerganov/whisper.cpp \
             app/src/main/cpp/whisper
 
-      - name: Download Whisper model (base.en, q5_1 quantised ~57 MB)
+      - name: Download Whisper model (tiny.en, q5_1 quantised ~31 MB — fast)
         run: |
           mkdir -p app/src/main/assets/models
-          curl -L --fail -o app/src/main/assets/models/ggml-base.en.bin \
-            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin
+          curl -L --fail -o app/src/main/assets/models/ggml-model.bin \
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin
 
       - name: Inject license SECRET from repo secret
         env:

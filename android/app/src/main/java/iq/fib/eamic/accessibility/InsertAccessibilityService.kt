@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -29,8 +30,10 @@ class InsertAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow ?: return false
         val node = findEditableFocus(root) ?: return false
 
-        // 1) Append via SET_TEXT (preserves what's already typed).
-        val existing = node.text?.toString() ?: ""
+        // 1) Append via SET_TEXT (preserves what's already typed). Ignore the
+        //    field's placeholder/hint (e.g. "Message") so we don't prepend it.
+        val isHint = Build.VERSION.SDK_INT >= 26 && node.isShowingHintText
+        val existing = if (isHint) "" else (node.text?.toString() ?: "")
         val args = Bundle().apply {
             putCharSequence(
                 AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,

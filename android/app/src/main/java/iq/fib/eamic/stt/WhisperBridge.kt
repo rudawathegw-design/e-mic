@@ -26,7 +26,7 @@ object WhisperBridge {
 
     /** Copy the bundled model out of assets and init the whisper context once. */
     @Synchronized
-    fun ensureLoaded(context: Context, modelAsset: String = "models/ggml-base.en.bin"): Boolean {
+    fun ensureLoaded(context: Context, modelAsset: String = "models/ggml-model.bin"): Boolean {
         if (!loaded) return false
         if (ctxPtr != 0L) return true
         val modelFile = File(context.filesDir, modelAsset.substringAfterLast('/'))

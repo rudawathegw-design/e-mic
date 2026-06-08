@@ -67,6 +67,7 @@ class OverlayService : LifecycleService() {
         // Re-promote so that once the mic permission is granted, a subsequent
         // start() upgrades the service to the microphone foreground type.
         promoteForeground()
+        if (intent?.action == ACTION_DICTATE) main.post { openSheet() }
         return START_STICKY
     }
 
@@ -200,10 +201,11 @@ class OverlayService : LifecycleService() {
     private fun onDone() {
         showGroup(listening = false, transcribing = true, result = false)
         val punctuate = repo.settings.value.punctuation
+        val dictionary = repo.dictionary.value
         thread {
             val samples = recorder.stop()
             val raw = if (WhisperBridge.ensureLoaded(this)) WhisperBridge.transcribe(samples) else null
-            val text = raw?.let { Punctuate.process(it, punctuation = punctuate, grammar = punctuate) }
+            val text = raw?.let { Punctuate.process(it, punctuation = punctuate, grammar = punctuate, dictionary = dictionary) }
                 ?.ifBlank { "" }
                 ?: "(Could not transcribe — make sure the model is bundled.)"
             main.post {
@@ -262,7 +264,9 @@ class OverlayService : LifecycleService() {
         runCatching { recorder.stop() }
         sheet?.let { runCatching { wm.removeView(it) } }
         sheet = null
-        setBubbleVisible(true)
+        // If the floating bubble is disabled, the service was only running to
+        // serve this one dictation (e.g. from the scratchpad) — stop it.
+        if (!repo.settings.value.bubble) stopSelf() else setBubbleVisible(true)
     }
 
     private fun toast(msg: String) = main.post { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
@@ -296,9 +300,17 @@ class OverlayService : LifecycleService() {
     companion object {
         private const val CHANNEL = "emic_overlay"
         private const val NOTIF_ID = 42
+        const val ACTION_DICTATE = "iq.fib.eamic.action.DICTATE"
 
         fun start(context: Context) {
             val i = Intent(context, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(i)
+            else context.startService(i)
+        }
+
+        /** Start the floating dictation panel directly (e.g. scratchpad tap). */
+        fun dictate(context: Context) {
+            val i = Intent(context, OverlayService::class.java).setAction(ACTION_DICTATE)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(i)
             else context.startService(i)
         }

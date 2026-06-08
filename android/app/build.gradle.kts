@@ -25,9 +25,9 @@ android {
             }
         }
         ndk {
-            // Ship 64-bit only to keep the APK small; add "armeabi-v7a" if you
-            // need to support very old devices.
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            // Ship arm64 only — every modern phone (incl. Galaxy S24) is arm64.
+            // Drops the duplicate x86_64 native libs to keep the APK small.
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
