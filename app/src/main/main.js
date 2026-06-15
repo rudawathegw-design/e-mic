@@ -8,8 +8,9 @@ import { createRequire } from "node:module";
 import * as store from "./store.js";
 import { isValidKey } from "./license.js";
 import { transcribe, resetModel, warmUp } from "./transcribe.js";
-import { process as processText } from "./punctuate.js";
-import { deliver } from "./paste.js";
+import { process as processText, fixGrammar, fixPunctuation, improveText, applyDictionary } from "./punctuate.js";
+import { polish as deepseekPolish, suggest as deepseekSuggest } from "./deepseek.js";
+import { deliver, grabSelection } from "./paste.js";
 import { duck, unduck } from "./duck.js";
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall, checkSilently, isMandatoryPending } from "./updater.js";
 
@@ -17,10 +18,12 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RENDERER = path.join(__dirname, "..", "renderer", "index.html");
 const OVERLAY = path.join(__dirname, "..", "renderer", "overlay.html");
+const SUGGEST = path.join(__dirname, "..", "renderer", "suggest.html");
 const APP_ICON = path.join(__dirname, "..", "renderer", "assets", "icon.png");
 
 let win = null;        // dashboard
 let overlay = null;    // system-wide listening pill
+let suggest = null;    // grammar-suggestion popup
 let tray = null;       // notification-area (system tray) icon
 let isQuitting = false; // true only when the user really wants to exit
 
@@ -93,6 +96,41 @@ function createOverlay() {
   overlay.loadFile(OVERLAY);
 }
 
+const SUG_W = 420, SUG_H = 360;
+function createSuggest() {
+  suggest = new BrowserWindow({
+    width: SUG_W, height: SUG_H,
+    frame: false, transparent: true, resizable: false, movable: false,
+    skipTaskbar: true, alwaysOnTop: true, hasShadow: false, show: false,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true, nodeIntegration: false, sandbox: false, webSecurity: false,
+    },
+  });
+  suggest.setAlwaysOnTop(true, "screen-saver");
+  suggest.loadFile(SUGGEST);
+  // hide (don't close) when it loses focus, so it behaves like a transient popup
+  suggest.on("blur", () => { if (suggest && !suggest.isDestroyed()) suggest.hide(); });
+}
+
+// show the popup near the cursor and send it a state payload
+function showSuggest(payload) {
+  if (!suggest || suggest.isDestroyed()) createSuggest();
+  const pt = screen.getCursorScreenPoint();
+  const wa = screen.getDisplayNearestPoint(pt).workArea;
+  // anchor near the cursor but keep the window fully on-screen
+  let x = pt.x + 12, y = pt.y + 16;
+  x = Math.min(Math.max(wa.x, x), wa.x + wa.width - SUG_W);
+  y = Math.min(Math.max(wa.y, y), wa.y + wa.height - SUG_H);
+  suggest.setBounds({ x: Math.round(x), y: Math.round(y), width: SUG_W, height: SUG_H });
+  const send = () => suggest.webContents.send("suggest", payload);
+  if (suggest.webContents.isLoading()) suggest.webContents.once("did-finish-load", send);
+  else send();
+  suggest.setAlwaysOnTop(true, "screen-saver");
+  suggest.show();
+  suggest.moveTop();
+}
+
 // ---- dictation coordination (one place; called by hotkey AND in-app button) ----
 function broadcast(channel, payload) {
   win?.webContents.send(channel, payload);
@@ -141,6 +179,64 @@ function stopDictation() {
   broadcast("ptt-stop");
 }
 
+// increment the DeepSeek counter and push the new total to the dashboard
+function countApiRequest() {
+  const n = store.bumpApiRequests();
+  win?.webContents.send("api-count", n);
+  return n;
+}
+
+// build up to 3 labelled offline correction variants (no cloud, no key needed)
+function offlineVariants(text, dictionary) {
+  const tidy = (s) => s.replace(/\s+([,.!?;:])/g, "$1").replace(/\s{2,}/g, " ").trim();
+  const cand = [
+    { style: "Grammar fix", text: applyDictionary(fixPunctuation(fixGrammar(text)), dictionary) },
+    { style: "Cleaned up",  text: applyDictionary(fixPunctuation(fixGrammar(improveText(text))), dictionary) }, // fillers/repeats removed
+    { style: "Light touch", text: applyDictionary(tidy(fixGrammar(text)), dictionary) },                        // grammar only, no forced period
+  ];
+  const out = [], seen = new Set();
+  for (const c of cand) if (c.text && !seen.has(c.text)) { seen.add(c.text); out.push(c); }
+  return out;
+}
+
+// ---- grammar-correct the text currently selected anywhere in Windows ----
+// Triggered by the "fix" shortcut (a tap, not a hold): copy the selection, get
+// three correction options (DeepSeek if enabled, else offline rules) and show
+// them in a popup. We DON'T paste — the user clicks an option to copy it.
+let fixing = false;
+async function runGrammarFix() {
+  if (fixing) return;
+  if (!store.isActive()) { win?.webContents.send("trial-expired"); win?.show(); return; }
+  fixing = true;
+  try {
+    await new Promise((r) => setTimeout(r, 120));   // let the trigger keys fully release
+    const { selected } = await grabSelection();
+    if (!selected) {
+      console.log("grammar-fix: nothing selected");
+      showSuggest({ phase: "error", message: "Select some text first, then tap the shortcut." });
+      return;
+    }
+    console.log("grammar-fix: selected=" + JSON.stringify(selected.slice(0, 80)));
+    const s = store.get();
+
+    if (s.settings.aiPolish && s.settings.deepseekKey) {
+      showSuggest({ phase: "loading" });                     // instant "correcting…" feedback
+      const r = await deepseekSuggest(selected, s.settings.deepseekKey);
+      countApiRequest();
+      if (r.ok) showSuggest({ phase: "ready", options: r.options });
+      else showSuggest({ phase: "error", message: r.message });
+    } else {
+      const options = offlineVariants(selected, s.dictionary);
+      showSuggest({ phase: "ready", options });
+    }
+  } catch (e) {
+    console.error("grammar-fix failed:", e);
+    showSuggest({ phase: "error", message: "Something went wrong while correcting." });
+  } finally {
+    setTimeout(() => { fixing = false; }, 400);   // debounce repeated taps
+  }
+}
+
 // ---- configurable global push-to-talk (hold the chosen shortcut anywhere) ----
 function setupHotkey() {
   let mod;
@@ -155,11 +251,17 @@ function setupHotkey() {
     shift: grp("Shift", "ShiftRight"),
     meta: grp("Meta", "MetaRight"),
   };
-  // map a captured key label ("Ctrl","Win","Alt","Shift","A","F9","Space") to a target
+  // punctuation labels -> UiohookKey names
+  const PUNCT = {
+    "`": "Backquote", "-": "Minus", "=": "Equal", "[": "BracketLeft", "]": "BracketRight",
+    "\\": "Backslash", ";": "Semicolon", "'": "Quote", ",": "Comma", ".": "Period", "/": "Slash",
+  };
+  // map a captured key label ("Ctrl","Win","Alt","Shift","A","F9","Space","`") to a target
   const mainKeycode = (label) => {
     if (!label) return null;
     if (label === "Space") return UiohookKey.Space;
     if (/^[A-Z0-9]$/.test(label)) return UiohookKey[label];
+    if (PUNCT[label]) return UiohookKey[PUNCT[label]] ?? null;
     return UiohookKey[label] ?? null;     // F1..F12, etc.
   };
   function parse(shortcut) {
@@ -175,20 +277,45 @@ function setupHotkey() {
     return { need, main };
   }
 
-  const down = new Set();
+  const down = new Set();   // currently-held NON-modifier keys (the "main" key)
+  // Trust the OS modifier state carried on each event. Tracking our own key set
+  // for modifiers is unreliable — Windows sometimes swallows the Win-key keyup
+  // (it opens the Start menu), leaving Meta "stuck down" so a later lone Ctrl
+  // press wrongly satisfies Ctrl+Win and starts the mic. The event booleans
+  // always reflect the real modifier state, so they can't get stuck.
+  const mods = { ctrl: false, alt: false, shift: false, meta: false };
   let talking = false;
   let stopTimer = null;
-  const anyDown = (set) => { for (const c of set) if (down.has(c)) return true; return false; };
+  let fixHeld = false;     // edge tracker for the grammar-fix (tap) shortcut
 
-  const refresh = () => {
-    const sc = parse(store.get().settings.shortcut || ["Ctrl", "Win"]);
-    const ctrl = anyDown(MODS.ctrl), alt = anyDown(MODS.alt), shift = anyDown(MODS.shift), meta = anyDown(MODS.meta);
+  const syncMods = (e) => {
+    if (e && e.ctrlKey !== undefined) {
+      mods.ctrl = !!e.ctrlKey; mods.alt = !!e.altKey;
+      mods.shift = !!e.shiftKey; mods.meta = !!e.metaKey;
+    }
+  };
+
+  // does the current state satisfy `shortcut`?
+  const satisfied = (shortcut) => {
+    const sc = parse(shortcut || []);
+    // EXACT modifier match: every required modifier held AND no extra modifier
+    // held (so Ctrl+Win never fires while you're holding, say, Ctrl+Alt+Win).
     const modsOk =
-      (!sc.need.ctrl || ctrl) && (!sc.need.alt || alt) &&
-      (!sc.need.shift || shift) && (!sc.need.meta || meta);
+      mods.ctrl === sc.need.ctrl && mods.alt === sc.need.alt &&
+      mods.shift === sc.need.shift && mods.meta === sc.need.meta;
     const mainOk = sc.main == null ? true : down.has(sc.main);
     const hasAny = sc.need.ctrl || sc.need.alt || sc.need.shift || sc.need.meta || sc.main != null;
-    const want = hasAny && modsOk && mainOk;
+    return hasAny && modsOk && mainOk;
+  };
+
+  const refresh = () => {
+    // grammar-fix: fire once on RELEASE, so the modifier keys are up before we
+    // send Ctrl+C / Ctrl+V to the foreground app (otherwise they'd be corrupted)
+    const fixNow = satisfied(store.get().settings.fixShortcut || []);
+    if (fixHeld && !fixNow) runGrammarFix();
+    fixHeld = fixNow;
+
+    const want = satisfied(store.get().settings.shortcut || ["Ctrl", "Win"]);
 
     if (want) {
       // a (re)press cancels any pending stop — absorbs key auto-repeat flicker
@@ -200,8 +327,9 @@ function setupHotkey() {
     }
   };
 
-  uIOhook.on("keydown", (e) => { down.add(e.keycode); refresh(); });
-  uIOhook.on("keyup", (e) => { down.delete(e.keycode); refresh(); });
+  const MOD_CODES = new Set([...MODS.ctrl, ...MODS.alt, ...MODS.shift, ...MODS.meta]);
+  uIOhook.on("keydown", (e) => { syncMods(e); if (!MOD_CODES.has(e.keycode)) down.add(e.keycode); refresh(); });
+  uIOhook.on("keyup", (e) => { syncMods(e); down.delete(e.keycode); refresh(); });
 
   try { uIOhook.start(); console.log("global hotkey active (configurable, default Ctrl + Win)"); }
   catch (e) { console.warn("uiohook start failed:", e?.message); }
@@ -220,6 +348,7 @@ function setupIpc() {
       licensed: s.licensed,
       trialDaysLeft: store.trialDaysLeft(),
       active: store.isActive(),
+      apiRequests: s.apiRequests || 0,
       settings: s.settings,
       dictionary: s.dictionary,
       history: s.history,
@@ -269,12 +398,18 @@ function setupIpc() {
     try {
       const r = await transcribe(pcm, s.settings.model);
       console.log("dictate: whisper raw=" + JSON.stringify(r.text));
-      const text = processText(r.text, {
+      let text = processText(r.text, {
         punctuation: s.settings.punctuation,
         grammar: s.settings.grammar,
         improve: s.settings.improve,
       }, s.dictionary);
       if (!text) return fail("empty");
+      // optional cloud polish (opt-in; falls back to offline text on any error)
+      if (s.settings.aiPolish && s.settings.deepseekKey) {
+        text = await deepseekPolish(text, s.settings.deepseekKey);
+        countApiRequest();
+        console.log("dictate: deepseek polished=" + JSON.stringify(text));
+      }
       console.log("dictate: pasting=" + JSON.stringify(text) + " via " + s.settings.output);
       deliver(text, s.settings.output);
       const result = { ok: true, text, lang: "en", time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) };
@@ -296,6 +431,16 @@ function setupIpc() {
   // dashboard aborted before transcription (silence/short hold) -> hide the pill
   ipcMain.on("dictation:cancel", () => overlay?.webContents.send("dictation-result", { ok: false }));
   ipcMain.on("clipboard:write", (_e, text) => clipboard.writeText(String(text || "")));
+  ipcMain.on("suggest:close", () => { if (suggest && !suggest.isDestroyed()) suggest.hide(); });
+  ipcMain.on("suggest:size", (_e, h) => {
+    if (!suggest || suggest.isDestroyed()) return;
+    const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    const height = Math.max(120, Math.min(Math.round(h) || SUG_H, wa.height - 20));
+    const b = suggest.getBounds();
+    // grow upward if the popup would run off the bottom of the screen
+    const y = Math.min(b.y, wa.y + wa.height - height - 4);
+    suggest.setBounds({ x: b.x, y: Math.max(wa.y, y), width: SUG_W, height });
+  });
 }
 
 function applyStartup(enabled) {
@@ -308,6 +453,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   createOverlay();
+  createSuggest();
   setupIpc();
   setupHotkey();
   applyStartup(store.get().settings.startup);   // honor saved "launch on startup"

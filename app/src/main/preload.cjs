@@ -29,6 +29,11 @@ contextBridge.exposeInMainWorld("EA", {
   hideOverlay: () => ipcRenderer.send("overlay:hide"),
   cancelDictation: () => ipcRenderer.send("dictation:cancel"),
 
+  // grammar-suggestion popup
+  onSuggest: (cb) => ipcRenderer.on("suggest", (_e, data) => cb(data)),
+  closeSuggest: () => ipcRenderer.send("suggest:close"),
+  suggestResize: (h) => ipcRenderer.send("suggest:size", h),
+
   // updates
   checkUpdate: () => ipcRenderer.invoke("update:check"),
   downloadUpdate: () => ipcRenderer.invoke("update:download"),
@@ -40,5 +45,6 @@ contextBridge.exposeInMainWorld("EA", {
   onPttStop: (cb) => ipcRenderer.on("ptt-stop", cb),
   onResult: (cb) => ipcRenderer.on("dictation-result", (_e, data) => cb(data)),
   onTrialExpired: (cb) => ipcRenderer.on("trial-expired", cb),
+  onApiCount: (cb) => ipcRenderer.on("api-count", (_e, n) => cb(n)),
   onUpgrade: (cb) => ipcRenderer.on("upgrade", cb),
 });
