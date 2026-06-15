@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --surface:#FFFFFF; --text:#2B2620; --text-muted:#6E6457; --text-faint:#9C9285;
+  --accent:#D97757; --accent-strong:#C2603E; --accent-soft:#FAEDE6; --accent-border:#EBC3B2;
+  --success:#5B8A72; --success-soft:#E9F0EA; --success-border:#BFD6C7;
+  --border:#E7DFD2;
+  --sans:'Hanken Grotesk',system-ui,sans-serif;
+}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:var(--sans);-webkit-user-select:none;user-select:none;}
+.card{
+  background:var(--surface);border:1.5px solid var(--accent-border);border-radius:16px;
+  box-shadow:0 16px 48px rgba(43,38,32,.22);
+  margin:10px;display:flex;flex-direction:column;overflow:hidden;
+}
+.head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);}
+.head .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+.head .ttl{font-size:13.5px;font-weight:700;color:var(--text);flex:1;}
+.head .x{cursor:pointer;color:var(--text-faint);font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;}
+.head .x:hover{background:var(--accent-soft);color:var(--accent-strong);}
+.body{padding:12px 14px;display:flex;flex-direction:column;gap:9px;max-height:560px;overflow-y:auto;}
+.loading{display:flex;align-items:center;gap:11px;padding:18px 6px;color:var(--text-muted);font-size:13.5px;font-weight:500;}
+.spin{width:17px;height:17px;border-radius:50%;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.opt{
+  border:1.5px solid var(--border);border-radius:11px;padding:10px 12px;cursor:pointer;
+  display:flex;flex-direction:column;gap:5px;transition:border-color .12s,background .12s;
+}
+.opt:hover{border-color:var(--accent);background:var(--accent-soft);}
+.opt .top{display:flex;align-items:center;gap:8px;}
+.opt .style{flex:1;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--accent-strong);text-transform:uppercase;}
+.opt .tag{flex:0 0 auto;font-size:10.5px;font-weight:600;color:var(--text-faint);}
+.opt .txt{font-size:14px;line-height:1.5;color:var(--text);user-select:text;white-space:pre-wrap;word-break:break-word;}
+.opt.copied{border-color:var(--success-border);background:var(--success-soft);}
+.opt.copied .tag{color:var(--success);}
+.hint{padding:8px 16px 12px;font-size:11.5px;color:var(--text-faint);}
+.err{padding:16px;color:var(--accent-strong);font-size:13px;font-weight:500;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <span class="dot"></span>
+    <span class="ttl">Grammar suggestions</span>
+    <span class="x" id="close">✕</span>
+  </div>
+  <div class="body" id="body">
+    <div class="loading"><span class="spin"></span>Correcting grammar…</div>
+  </div>
+  <div class="hint" id="hint">Click a suggestion to copy it, then paste where you like.</div>
+</div>
+
+<script>
+(function(){
+  const body = document.getElementById("body");
+  const hint = document.getElementById("hint");
+  document.getElementById("close").onclick = () => window.EA.closeSuggest();
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") window.EA.closeSuggest(); });
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  // ask the main process to size the window to fit the content (so all text shows)
+  function fit(){
+    const h = Math.ceil(document.querySelector(".card").getBoundingClientRect().height) + 20;
+    window.EA.suggestResize && window.EA.suggestResize(h);
+  }
+
+  function renderLoading(){
+    body.innerHTML = `<div class="loading"><span class="spin"></span>Correcting grammar…</div>`;
+    hint.textContent = "Click a suggestion to copy it, then paste where you like.";
+    fit();
+  }
+  function renderError(msg){
+    body.innerHTML = `<div class="err">${escapeHtml(msg || "Couldn't get suggestions.")}</div>`;
+    fit();
+  }
+  function renderOptions(options){
+    if (!options || !options.length) return renderError("No suggestions — try selecting some text first.");
+    // normalize: accept plain strings or {style,text}
+    const opts = options.map((o) => (o && typeof o === "object") ? { style: o.style || "", text: o.text || "" } : { style: "", text: String(o) });
+    body.innerHTML = opts.map((o, i) =>
+      `<div class="opt" data-i="${i}">
+         <div class="top"><span class="style">${escapeHtml(o.style || ("Option " + (i+1)))}</span><span class="tag">Copy</span></div>
+         <div class="txt">${escapeHtml(o.text)}</div>
+       </div>`).join("");
+    body.querySelectorAll(".opt").forEach((el, i) => {
+      el.onclick = () => {
+        window.EA.copy(opts[i].text);
+        body.querySelectorAll(".opt").forEach((e2) => { e2.classList.remove("copied"); e2.querySelector(".tag").textContent = "Copy"; });
+        el.classList.add("copied");
+        el.querySelector(".tag").textContent = "Copied ✓";
+      };
+    });
+    fit();
+  }
+
+  window.EA.onSuggest((data) => {
+    if (!data || data.phase === "loading") return renderLoading();
+    if (data.phase === "error") return renderError(data.message);
+    if (data.phase === "ready") renderOptions(data.options);
+  });
+})();
+</script>
+</body>
+</html>

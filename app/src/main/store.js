@@ -12,6 +12,7 @@ const DEFAULTS = {
   installedAt: null,      // ISO date string — set on first launch (trial start)
   licensed: false,
   licenseKey: "",
+  apiRequests: 0,         // running count of DeepSeek API calls made
   settings: {
     model: "Base — fast (English)",
     output: "Paste (recommended)",
@@ -19,7 +20,11 @@ const DEFAULTS = {
     grammar: true,
     improve: true,
     duck: "High (50%)",
+    mic: "",                // input device id ("" = system default)
+    aiPolish: false,        // opt-in: rewrite transcript via DeepSeek (cloud)
+    deepseekKey: "",        // user's own DeepSeek API key (stored locally)
     shortcut: ["Ctrl", "Win"],
+    fixShortcut: ["Ctrl", "`"],  // tap: grammar-correct the selected text
     startup: true,
   },
   dictionary: [],
@@ -43,6 +48,9 @@ function read() {
   cache.settings = { ...DEFAULTS.settings, ...cache.settings };
   cache.settings.model = DEFAULTS.settings.model;
   delete cache.settings.language;
+  // migrate the earlier grammar-fix default (Ctrl+Alt+G) to the new Ctrl+`
+  if (Array.isArray(cache.settings.fixShortcut) && cache.settings.fixShortcut.join("+") === "Ctrl+Alt+G")
+    cache.settings.fixShortcut = ["Ctrl", "`"];
   return cache;
 }
 
@@ -63,6 +71,14 @@ export function patch(partial) {
   cache = { ...read(), ...partial };
   write();
   return cache;
+}
+
+/** Increment the DeepSeek API request counter and return the new total. */
+export function bumpApiRequests() {
+  const s = read();
+  s.apiRequests = (s.apiRequests || 0) + 1;
+  write();
+  return s.apiRequests;
 }
 
 /** Whole-number days remaining in the trial (0 once expired). */

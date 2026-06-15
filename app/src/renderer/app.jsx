@@ -31,7 +31,7 @@ function App() {
   const [settings, setSettings] = useState({
     model: "Base — fast (English)",
     output: "Paste (recommended)", punctuation: true, grammar: true, improve: true, duck: "High (50%)",
-    shortcut: ["Ctrl", "Win"], startup: true,
+    mic: "", aiPolish: false, deepseekKey: "", shortcut: ["Ctrl", "Win"], fixShortcut: ["Ctrl", "`"], startup: true,
   });
   const [scratch, setScratch] = useState("");
   const [scratchLang, setScratchLang] = useState("en");
@@ -40,6 +40,7 @@ function App() {
   const [licenseFocus, setLicenseFocus] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [user, setUser] = useState("there");
+  const [apiCount, setApiCount] = useState(0);
   const goLicense = (focus) => { setLicenseFocus(focus); setScreen("license"); };
   // always show a freshly-opened page from the top (e.g. the payment steps)
   useEffect(() => { document.querySelector(".content")?.scrollTo(0, 0); }, [screen]);
@@ -56,9 +57,14 @@ function App() {
     if (!window.EA) { setLoaded(true); return; }
     window.EA.getState().then((s) => {
       setUser(s.user || "there");
+      setApiCount(s.apiRequests || 0);
       setLicensed(s.licensed);
       setTrialDaysLeft(s.trialDaysLeft);
-      if (s.settings) setSettings(s.settings);
+      if (s.settings) {
+        setSettings(s.settings);
+        // bind the recorder to the saved mic (no-op if it's the system default)
+        if (s.settings.mic && window.EARecorder) window.EARecorder.setDevice(s.settings.mic).catch(() => {});
+      }
       if (s.dictionary) setDict(s.dictionary);
       if (s.history) setTranscripts(s.history);
       setLoaded(true);
@@ -105,6 +111,7 @@ function App() {
       idleTimer.current = setTimeout(() => setPill((q) => ({ ...q, phase: "idle" })), 2000);
     });
     window.EA.onTrialExpired(() => goLicense(false));   // open payment page at the top (steps first)
+    window.EA.onApiCount((n) => setApiCount(n));         // grammar-fix / dictation bumped the DeepSeek counter
   }, []);
 
   // the in-app "Hold to talk" button drives the same global path as Ctrl+Win.
@@ -229,7 +236,7 @@ function App() {
             {screen === "home" && <HomeScreen name={me.firstName} stats={stats} scratch={scratch} setScratch={setScratch} scratchLang={scratchLang} settings={settings} licensed={licensed} trialDaysLeft={trialDaysLeft} onBuy={() => goLicense(false)} onEnterKey={() => goLicense(true)} />}
             {screen === "history" && <HistoryScreen transcripts={transcripts} onDelete={(id) => setTranscripts((a) => a.filter((x) => x.id !== id))} onClear={() => setTranscripts([])} onCopy={(txt) => window.EA && window.EA.copy(txt)} />}
             {screen === "dictionary" && <DictionaryScreen words={dict} onAdd={(w) => setDict((a) => a.includes(w) ? a : [...a, w])} onRemove={(w) => setDict((a) => a.filter((x) => x !== w))} />}
-            {screen === "settings" && <SettingsScreen settings={settings} setSettings={setSettings} onCapturingChange={(v) => { capturingRef.current = v; window.EA && window.EA.setCapturing(v); }} />}
+            {screen === "settings" && <SettingsScreen settings={settings} setSettings={setSettings} apiCount={apiCount} onCapturingChange={(v) => { capturingRef.current = v; window.EA && window.EA.setCapturing(v); }} />}
             {screen === "updates" && <UpdatesScreen />}
             {screen === "license" && <LicenseScreen licensed={licensed} autoFocus={licenseFocus} onBack={() => setScreen("home")} onActivated={() => { setLicensed(true); setLicenseFocus(false); }} />}
           </main>

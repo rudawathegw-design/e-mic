@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 60dp frosted floating bubble with the static wave mark, sized to fill the
+     circle. The circle is semi-transparent so the background shows through. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="60dp"
+    android:layout_height="60dp"
+    android:background="@drawable/bubble_bg"
+    android:elevation="8dp">
+
+    <ImageView
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_wave"
+        android:contentDescription="@string/app_name" />
+</FrameLayout>

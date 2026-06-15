@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Floating dictation panel shown over whatever app is in front (over the
+     keyboard). Three states toggled by visibility: listening, transcribing,
+     result. The root is a full-screen scrim; tapping it cancels. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sheet_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#57130E08"
+    android:padding="10dp">
+
+    <LinearLayout
+        android:id="@+id/sheet_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="@drawable/sheet_bg"
+        android:elevation="18dp"
+        android:padding="18dp">
+
+        <View
+            android:layout_width="38dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp"
+            android:background="@drawable/grip_bg" />
+
+        <!-- ===== LISTENING ===== -->
+        <LinearLayout
+            android:id="@+id/group_listening"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="9dp"
+                    android:layout_height="9dp"
+                    android:layout_marginEnd="9dp"
+                    android:background="@drawable/dot_primary" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Listening…"
+                    android:textColor="#2B2620"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/pill_en"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="EN"
+                    android:textColor="#C2603E"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <iq.fib.eamic.overlay.WaveformView
+                android:id="@+id/listen_wave"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="14dp"
+                android:layout_marginBottom="6dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/btn_cancel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:background="?android:selectableItemBackgroundBorderless">
+
+                    <FrameLayout
+                        android:layout_width="62dp"
+                        android:layout_height="62dp"
+                        android:background="@drawable/circle_surface">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_x"
+                            android:tint="#6E6457"
+                            android:contentDescription="Cancel" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:text="Cancel"
+                        android:textColor="#6E6457"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <Space
+                    android:layout_width="40dp"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/btn_done"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:background="?android:selectableItemBackgroundBorderless">
+
+                    <FrameLayout
+                        android:layout_width="62dp"
+                        android:layout_height="62dp"
+                        android:background="@drawable/circle_primary">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_check_line"
+                            android:tint="#FFFFFF"
+                            android:contentDescription="Done" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:text="Done"
+                        android:textColor="#C2603E"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ===== TRANSCRIBING ===== -->
+        <LinearLayout
+            android:id="@+id/group_transcribing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingVertical="20dp"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:indeterminateTint="#D97757" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="11dp"
+                android:text="Transcribing &amp; adding punctuation…"
+                android:textColor="#6E6457"
+                android:textSize="14.5sp" />
+        </LinearLayout>
+
+        <!-- ===== RESULT ===== -->
+        <LinearLayout
+            android:id="@+id/group_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Your text"
+                    android:textColor="#2B2620"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:id="@+id/btn_close"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/circle_surface">
+
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_x"
+                        android:contentDescription="Close" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/result_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/res_box_bg"
+                android:padding="14dp"
+                android:textColor="#2B2620"
+                android:textSize="15.5sp"
+                android:lineSpacingMultiplier="1.2" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:src="@drawable/ic_check_line"
+                    android:tint="#5B8A72"
+                    android:contentDescription="@null" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="5dp"
+                    android:text="Cleaned &amp; punctuated"
+                    android:textColor="#5B8A72"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/btn_redo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="?android:selectableItemBackground"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="13dp"
+                        android:layout_height="13dp"
+                        android:src="@drawable/ic_refresh_line"
+                        android:contentDescription="Redo" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="5dp"
+                        android:text="Redo"
+                        android:textColor="#C2603E"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/btn_copy"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="5.5dp"
+                    android:background="@drawable/opt_secondary_bg"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_copy_line"
+                        android:contentDescription="@null" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp"
+                        android:text="Copy"
+                        android:textColor="#2B2620"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btn_insert"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="5.5dp"
+                    android:background="@drawable/opt_primary_bg"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_insert_arrow"
+                        android:contentDescription="@null" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp"
+                        android:text="Insert"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

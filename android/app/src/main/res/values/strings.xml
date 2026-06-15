@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">E Mic</string>
+    <string name="accessibility_label">E Mic — insert dictated text</string>
+    <string name="accessibility_description">Lets E Mic type the text you dictate into the focused field of any app. E Mic never reads your screen; it only writes when you tap Insert.</string>
+</resources>

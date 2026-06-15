@@ -18,3 +18,9 @@ extracted/
 Thumbs.db
 .DS_Store
 *.log
+
+dist-android/
+ksbuild/
+*.p12
+*.keystore
+*.jks
