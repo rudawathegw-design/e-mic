@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.VpnKey
@@ -219,6 +220,7 @@ fun SettingsScreen(
     onToggle: (String) -> Unit,
     onAccount: () -> Unit,
     onDictionary: () -> Unit,
+    onMic: () -> Unit = {},
     onCheckUpdate: () -> Unit = {},
 ) {
     val acctText = when (license) {
@@ -239,6 +241,7 @@ fun SettingsScreen(
             SectionLabel("Dictation", Modifier.padding(top = 16.dp, bottom = 7.dp))
             Card(Modifier.fillMaxWidth()) {
                 Column {
+                    SettingRow(Icons.Outlined.Mic, "Microphone", "Choose which mic to listen to", settings.micLabel, divider = true, onClick = onMic)
                     SettingRow(Icons.Outlined.Language, "Language", "More languages soon", "English", divider = true)
                     SettingRow(Icons.Outlined.TextFields, "Output", "What happens after you speak", settings.output) { onCycle("output") }
                     SettingRow(Icons.Outlined.Book, "Dictionary", "Fix names & special words", null, divider = true, onClick = onDictionary)

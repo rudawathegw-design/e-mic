@@ -102,6 +102,7 @@ private fun RootApp(repo: Repository) {
     var tab by remember { mutableStateOf(Tab.HOME) }
     var showLicense by remember { mutableStateOf(false) }
     var showDictionary by remember { mutableStateOf(false) }
+    var showMic by remember { mutableStateOf(false) }
 
     // ---- self-updater (free, via GitHub Releases) ----
     var update by remember { mutableStateOf<iq.fib.eamic.update.Updater.Release?>(null) }
@@ -115,10 +116,11 @@ private fun RootApp(repo: Repository) {
 
     // Back gesture: close an open sub-screen, then fall back to the Home tab,
     // before letting the system leave the app. Stops a stray swipe from exiting.
-    BackHandler(enabled = showLicense || showDictionary || tab != Tab.HOME) {
+    BackHandler(enabled = showLicense || showDictionary || showMic || tab != Tab.HOME) {
         when {
             showLicense -> showLicense = false
             showDictionary -> showDictionary = false
+            showMic -> showMic = false
             else -> tab = Tab.HOME
         }
     }
@@ -193,6 +195,15 @@ private fun RootApp(repo: Repository) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
+                    showMic -> iq.fib.eamic.ui.screens.MicScreen(
+                        selectedType = settings.micType,
+                        onBack = { showMic = false },
+                        onSelect = { mic ->
+                            repo.updateSettings { it.copy(micType = mic.type, micLabel = mic.label) }
+                            showMic = false
+                            Toast.makeText(context, "Microphone set to ${mic.label}", Toast.LENGTH_SHORT).show()
+                        },
+                    )
                     showDictionary -> DictionaryScreen(
                         words = dictionary,
                         onBack = { showDictionary = false },
@@ -239,6 +250,7 @@ private fun RootApp(repo: Repository) {
                         },
                         onAccount = { showLicense = true },
                         onDictionary = { showDictionary = true },
+                        onMic = { showMic = true },
                         onCheckUpdate = {
                             scope.launch {
                                 if (!iq.fib.eamic.update.Updater.hasInternet(context)) {
@@ -257,7 +269,7 @@ private fun RootApp(repo: Repository) {
                     )
                 }
             }
-            if (!showLicense && !showDictionary) BottomNav(tab) { tab = it }
+            if (!showLicense && !showDictionary && !showMic) BottomNav(tab) { tab = it }
         }
 
         // Update gate sits above everything. Mandatory updates can't be dismissed.

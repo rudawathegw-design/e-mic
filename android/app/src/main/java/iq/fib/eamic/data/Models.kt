@@ -15,6 +15,8 @@ data class Settings(
     val punctuation: Boolean = true,
     val bubble: Boolean = true,
     val startup: Boolean = true,
+    val micType: Int = 0,                  // 0 = Automatic, else AudioDeviceInfo.TYPE_*
+    val micLabel: String = "Automatic",    // friendly name of the chosen mic
 )
 
 /** Aggregate home-screen stats — accumulated from real dictations, from zero. */

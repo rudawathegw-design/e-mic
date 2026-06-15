@@ -196,7 +196,7 @@ class OverlayService : LifecycleService() {
             closeSheet(); return
         }
         showGroup(listening = true, transcribing = false, result = false)
-        runCatching { recorder.start() }.onFailure { toast("Microphone unavailable"); closeSheet() }
+        runCatching { recorder.start(this, repo.settings.value.micType) }.onFailure { toast("Microphone unavailable"); closeSheet() }
     }
 
     private fun onDone() {

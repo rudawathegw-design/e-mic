@@ -108,6 +108,8 @@ class Repository private constructor(private val appContext: Context) {
             p[K.punct] = s.punctuation
             p[K.bubble] = s.bubble
             p[K.startup] = s.startup
+            p[K.micType] = s.micType
+            p[K.micLabel] = s.micLabel
             p[K.license] = _license.value.name
             p[K.history] = historyToJson(_history.value)
             p[K.dictionary] = JSONArray(_dictionary.value).toString()
@@ -122,6 +124,8 @@ class Repository private constructor(private val appContext: Context) {
             punctuation = p[K.punct] ?: true,
             bubble = p[K.bubble] ?: true,
             startup = p[K.startup] ?: true,
+            micType = p[K.micType] ?: 0,
+            micLabel = p[K.micLabel] ?: "Automatic",
         )
         _license.value = p[K.license]?.let { runCatching { LicenseState.valueOf(it) }.getOrNull() } ?: LicenseState.TRIAL
         p[K.history]?.let { json -> historyFromJson(json)?.let { _history.value = it } }
@@ -140,6 +144,8 @@ class Repository private constructor(private val appContext: Context) {
         val punct = booleanPreferencesKey("punctuation")
         val bubble = booleanPreferencesKey("bubble")
         val startup = booleanPreferencesKey("startup")
+        val micType = intPreferencesKey("micType")
+        val micLabel = stringPreferencesKey("micLabel")
         val license = stringPreferencesKey("license")
         val words = intPreferencesKey("words")
         val dictations = intPreferencesKey("dictations")
