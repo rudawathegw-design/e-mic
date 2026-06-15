@@ -162,15 +162,38 @@ function DictionaryScreen({ words, onAdd, onRemove }) {
 }
 
 /* ---------------- SETTINGS ---------------- */
-function SettingsScreen({ settings, setSettings, onCapturingChange }) {
+function SettingsScreen({ settings, setSettings, apiCount, onCapturingChange }) {
   const [saved, setSaved] = useState(false);
-  const [capturing, setCapturing] = useState(false);
+  const [capture, setCapture] = useState(null);   // null | "shortcut" | "fixShortcut"
   const set = (k, v) => setSettings((s) => ({ ...s, [k]: v }));
   const save = () => { setSaved(true); setTimeout(() => setSaved(false), 1600); };
 
+  // ---- microphone picker ----
+  const [mics, setMics] = useState([]);
+  const [scanning, setScanning] = useState(false);
+  const scanMics = async () => {
+    if (!window.EARecorder) return;
+    setScanning(true);
+    try { setMics(await window.EARecorder.listDevices()); }
+    catch { /* permission not granted yet */ }
+    setScanning(false);
+  };
+  useEffect(() => { scanMics(); }, []);
+  const pickMic = async (id) => {
+    set("mic", id);
+    if (window.EARecorder) { try { await window.EARecorder.setDevice(id); } catch {} }
+  };
+  const refreshMics = async () => {
+    if (!window.EARecorder) return;
+    setScanning(true);
+    try { setMics(await window.EARecorder.refresh()); }   // reopens stream on live hardware
+    catch {}
+    setScanning(false);
+  };
+
   useEffect(() => {
-    onCapturingChange && onCapturingChange(capturing);
-    if (!capturing) return;
+    onCapturingChange && onCapturingChange(capture != null);
+    if (!capture) return;
     const fmtKey = (e) => {
       const parts = [];
       if (e.ctrlKey) parts.push("Ctrl");
@@ -186,13 +209,13 @@ function SettingsScreen({ settings, setSettings, onCapturingChange }) {
       e.preventDefault();
       const parts = fmtKey(e);
       if (parts.length >= 2 || (parts.length === 1 && !["Ctrl", "Win", "Alt", "Shift"].includes(parts[0]))) {
-        set("shortcut", parts);
-        setCapturing(false);
+        set(capture, parts);
+        setCapture(null);
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [capturing]);
+  }, [capture]);
 
   const Select = ({ k, options }) => (
     <div className="selectwrap">
@@ -208,6 +231,19 @@ function SettingsScreen({ settings, setSettings, onCapturingChange }) {
       <div className="page-head"><div><h1 className="page-title">Settings</h1><p className="sub">Everything runs on-device. No audio ever leaves your computer.</p></div></div>
 
       <div className="card">
+        <div className="fieldrow">
+          <div className="flabel"><b>Microphone</b><span>Which input E Mic records from. Hit Refresh after plugging in a headset.</span></div>
+          <div className="fctl" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div className="selectwrap">
+              <select value={settings.mic || ""} onChange={(e) => pickMic(e.target.value)}>
+                <option value="">System default</option>
+                {mics.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+              <span className="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+            </div>
+            <button className="btn sm" onClick={refreshMics} disabled={scanning}>{scanning ? "Scanning…" : "Refresh"}</button>
+          </div>
+        </div>
         <div className="fieldrow">
           <div className="flabel"><b>Output mode</b><span>How transcripts reach your app.</span></div>
           <div className="fctl"><Select k="output" options={["Paste (recommended)", "Type character-by-character", "Copy to clipboard only"]} /></div>
@@ -225,6 +261,23 @@ function SettingsScreen({ settings, setSettings, onCapturingChange }) {
           <div className="fctl"><button className={"toggle" + (settings.improve ? " on" : "")} onClick={() => set("improve", !settings.improve)}></button></div>
         </div>
         <div className="fieldrow">
+          <div className="flabel"><b>AI polish (DeepSeek)</b><span>Rewrite transcripts into fluent text via DeepSeek. Sends text to the cloud — off keeps everything on-device.</span></div>
+          <div className="fctl"><button className={"toggle" + (settings.aiPolish ? " on" : "")} onClick={() => set("aiPolish", !settings.aiPolish)}></button></div>
+        </div>
+        {settings.aiPolish && (
+          <div className="fieldrow">
+            <div className="flabel"><b>DeepSeek API key</b><span>Your own key from platform.deepseek.com. Stored only on this computer.</span></div>
+            <div className="fctl" style={{ minWidth: 240 }}>
+              <input type="password" value={settings.deepseekKey || ""} placeholder="sk-…"
+                onChange={(e) => set("deepseekKey", e.target.value.trim())}
+                style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 8, fontFamily: "ui-monospace,monospace", fontSize: 13 }} />
+              <div style={{ marginTop: 8, fontSize: 12.5, color: "var(--text-muted)" }}>
+                API requests sent: <b style={{ color: "var(--text)" }}>{apiCount || 0}</b>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="fieldrow">
           <div className="flabel"><b>Lower other audio</b><span>Duck music & calls while you talk.</span></div>
           <div className="fctl"><Select k="duck" options={["Off", "Low (10%)", "Medium (25%)", "High (50%)"]} /></div>
         </div>
@@ -233,13 +286,26 @@ function SettingsScreen({ settings, setSettings, onCapturingChange }) {
           <div className="fctl" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div className="shortcut-field">
               <div className="keys">
-                {capturing
+                {capture === "shortcut"
                   ? <span style={{ color: "var(--accent-strong)", fontSize: 13, fontWeight: 600 }}>Press keys…</span>
                   : settings.shortcut.map((k, i) => <span key={i} className="kbd">{k}</span>)}
               </div>
             </div>
-            <button className="btn sm" onClick={() => setCapturing((c) => !c)}>{capturing ? "Cancel" : "Change"}</button>
+            <button className="btn sm" onClick={() => setCapture((c) => c === "shortcut" ? null : "shortcut")}>{capture === "shortcut" ? "Cancel" : "Change"}</button>
             <button className={"btn sm" + (saved ? " primary" : "")} onClick={save}>{saved ? <><IconCheck size={14} />Saved</> : "Save"}</button>
+          </div>
+        </div>
+        <div className="fieldrow">
+          <div className="flabel"><b>Fix grammar shortcut</b><span>Select text anywhere, tap this to see styled rewrite options to copy.</span></div>
+          <div className="fctl" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div className="shortcut-field">
+              <div className="keys">
+                {capture === "fixShortcut"
+                  ? <span style={{ color: "var(--accent-strong)", fontSize: 13, fontWeight: 600 }}>Press keys…</span>
+                  : (settings.fixShortcut || []).map((k, i) => <span key={i} className="kbd">{k}</span>)}
+              </div>
+            </div>
+            <button className="btn sm" onClick={() => setCapture((c) => c === "fixShortcut" ? null : "fixShortcut")}>{capture === "fixShortcut" ? "Cancel" : "Change"}</button>
           </div>
         </div>
         <div className="fieldrow">
