@@ -103,10 +103,16 @@ jobs:
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "versionCode=$CODE versionName=$NAME"
 
-      - name: Attach APK to Release (tag builds only)
+      # Publish to the dedicated Android repo so the desktop app's
+      # electron-updater never sees these releases as "latest" in the main repo.
+      - name: Publish APK to e-mic-android Release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          repository: rudawathegw-design/e-mic-android
+          token: ${{ secrets.ANDROID_RELEASE_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          target_commitish: main
           files: android/out/EMic-android.apk
           name: E Mic ${{ steps.ver.outputs.name }}
           body: |
@@ -114,5 +120,3 @@ jobs:
 
             versionCode=${{ steps.ver.outputs.code }}
             # To force everyone below a build to update, add e.g.  min=${{ steps.ver.outputs.code }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

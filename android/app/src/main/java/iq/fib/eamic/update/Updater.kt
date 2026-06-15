@@ -29,7 +29,9 @@ import java.net.URL
 object Updater {
 
     private const val OWNER = "rudawathegw-design"
-    private const val REPO = "e-mic"
+    // Android releases live in their own repo so they don't collide with the
+    // desktop app's electron-updater "latest release" lookup in the main repo.
+    private const val REPO = "e-mic-android"
     private const val LATEST = "https://api.github.com/repos/$OWNER/$REPO/releases/latest"
 
     data class Release(
