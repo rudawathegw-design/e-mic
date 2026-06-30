@@ -10,11 +10,22 @@
 // nothing". An empty deviceId means "follow the system default".
 (function () {
   const TARGET_RATE = 16000;
+  const IDLE_RELEASE_MS = 5000;   // close the mic this long after dictation ends
   let ctx = null, stream = null, source = null, node = null;
   let chunks = [];
   let recording = false;
   let ready = null;
   let deviceId = "";   // "" = system default
+  let idleTimer = null;
+
+  // Hold the mic open during active use (no first-word clipping), but let it go
+  // after a few idle seconds so Windows stops showing the "microphone in use"
+  // badge. The next hotkey press reopens it via ensure().
+  function cancelIdleRelease() { if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; } }
+  function scheduleIdleRelease() {
+    cancelIdleRelease();
+    idleTimer = setTimeout(() => { idleTimer = null; if (!recording) teardown(); }, IDLE_RELEASE_MS);
+  }
 
   function constraints() {
     const audio = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true };
@@ -23,6 +34,7 @@
   }
 
   function teardown() {
+    cancelIdleRelease();
     try { if (node) node.disconnect(); } catch {}
     try { if (source) source.disconnect(); } catch {}
     try { if (stream) stream.getTracks().forEach((t) => t.stop()); } catch {}
@@ -57,6 +69,7 @@
   }
 
   async function start() {
+    cancelIdleRelease();
     await ensure();
     if (ctx.state === "suspended") await ctx.resume();
     chunks = [];
@@ -74,6 +87,7 @@
       for (let i = 0; i < c.length; i++) { const a = Math.abs(c[i]); if (a > peak) peak = a; }
     }
     chunks = [];
+    scheduleIdleRelease();
     return { audio: out, peak };
   }
 
@@ -104,8 +118,12 @@
     return listDevices();
   }
 
-  // open the mic as soon as the app loads so the first hold is instant
-  ensure().catch((e) => console.warn("mic prime failed (will retry on first use):", e?.message));
+  // Open the mic once at launch to grant permission and populate device labels,
+  // then release it after the idle window so we don't sit on the mic forever
+  // before the first hotkey press. The first hold still reopens instantly.
+  ensure()
+    .then(() => scheduleIdleRelease())
+    .catch((e) => console.warn("mic prime failed (will retry on first use):", e?.message));
 
   window.EARecorder = { start, stop, ensure, listDevices, setDevice, refresh, getDevice: () => deviceId };
 })();
