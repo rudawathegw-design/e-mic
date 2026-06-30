@@ -298,17 +298,23 @@ function setupHotkey() {
   const clearGroup = (group) => { for (const c of group) heldMods.delete(c); };
 
   const syncMods = (e) => {
+    if (!e) return;
+    const isDown = e.type === "keydown";
     // (1) physical: maintain heldMods from this event's keycode
-    if (e && MOD_CODES.has(e.keycode)) {
-      if (e.type === "keydown") heldMods.add(e.keycode);
+    const justPressed = isDown && MOD_CODES.has(e.keycode) ? e.keycode : null;
+    if (MOD_CODES.has(e.keycode)) {
+      if (isDown) heldMods.add(e.keycode);
       else heldMods.delete(e.keycode);   // keyup / anything else
     }
-    // (2) mask: only ever RELEASE a modifier the OS reports as up
-    if (e && e.ctrlKey !== undefined) {
-      if (!e.ctrlKey)  clearGroup(MODS.ctrl);
-      if (!e.altKey)   clearGroup(MODS.alt);
-      if (!e.shiftKey) clearGroup(MODS.shift);
-      if (!e.metaKey)  clearGroup(MODS.meta);
+    // (2) mask: only ever RELEASE a modifier the OS reports as up — but NEVER the
+    // one whose own keydown this event is. uIOhook's mask doesn't include the
+    // just-pressed modifier yet, so clearing it here would drop the keypress and
+    // the shortcut could never be satisfied.
+    if (e.ctrlKey !== undefined) {
+      if (!e.ctrlKey  && !MODS.ctrl.has(justPressed))  clearGroup(MODS.ctrl);
+      if (!e.altKey   && !MODS.alt.has(justPressed))   clearGroup(MODS.alt);
+      if (!e.shiftKey && !MODS.shift.has(justPressed)) clearGroup(MODS.shift);
+      if (!e.metaKey  && !MODS.meta.has(justPressed))  clearGroup(MODS.meta);
     }
     mods.ctrl = modActive(MODS.ctrl); mods.alt = modActive(MODS.alt);
     mods.shift = modActive(MODS.shift); mods.meta = modActive(MODS.meta);
