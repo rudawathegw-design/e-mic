@@ -278,21 +278,40 @@ function setupHotkey() {
   }
 
   const down = new Set();   // currently-held NON-modifier keys (the "main" key)
-  // Trust the OS modifier state carried on each event. Tracking our own key set
-  // for modifiers is unreliable — Windows sometimes swallows the Win-key keyup
-  // (it opens the Start menu), leaving Meta "stuck down" so a later lone Ctrl
-  // press wrongly satisfies Ctrl+Win and starts the mic. The event booleans
-  // always reflect the real modifier state, so they can't get stuck.
+  // Modifier state from TWO sources, combined asymmetrically so neither known
+  // Windows quirk can fire the mic:
+  //   1. Physical tracking (`heldMods`) is the only thing that marks a modifier
+  //      DOWN — we set Meta only when we actually saw a Win keydown. This kills
+  //      the phantom "Ctrl alone reads as Ctrl+Win" bug, where uIOhook's event
+  //      mask spuriously reports metaKey:true on a lone-Ctrl event.
+  //   2. The event mask may only CLEAR a modifier — if the OS says Win is up we
+  //      force it up even when we missed the keyup (Windows swallows the Win
+  //      keyup when it opens the Start menu). This kills the "Meta stuck down"
+  //      bug. We never let the mask SET a modifier, only release one.
+  const heldMods = new Set();   // physically-held modifier keycodes
   const mods = { ctrl: false, alt: false, shift: false, meta: false };
   let talking = false;
   let stopTimer = null;
   let fixHeld = false;     // edge tracker for the grammar-fix (tap) shortcut
 
+  const modActive = (group) => { for (const c of group) if (heldMods.has(c)) return true; return false; };
+  const clearGroup = (group) => { for (const c of group) heldMods.delete(c); };
+
   const syncMods = (e) => {
-    if (e && e.ctrlKey !== undefined) {
-      mods.ctrl = !!e.ctrlKey; mods.alt = !!e.altKey;
-      mods.shift = !!e.shiftKey; mods.meta = !!e.metaKey;
+    // (1) physical: maintain heldMods from this event's keycode
+    if (e && MOD_CODES.has(e.keycode)) {
+      if (e.type === "keydown") heldMods.add(e.keycode);
+      else heldMods.delete(e.keycode);   // keyup / anything else
     }
+    // (2) mask: only ever RELEASE a modifier the OS reports as up
+    if (e && e.ctrlKey !== undefined) {
+      if (!e.ctrlKey)  clearGroup(MODS.ctrl);
+      if (!e.altKey)   clearGroup(MODS.alt);
+      if (!e.shiftKey) clearGroup(MODS.shift);
+      if (!e.metaKey)  clearGroup(MODS.meta);
+    }
+    mods.ctrl = modActive(MODS.ctrl); mods.alt = modActive(MODS.alt);
+    mods.shift = modActive(MODS.shift); mods.meta = modActive(MODS.meta);
   };
 
   // does the current state satisfy `shortcut`?
